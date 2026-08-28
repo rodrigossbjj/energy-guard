@@ -1,3 +1,17 @@
 spring:
   application:
     name: energyguard
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/energy-guard}
+
+keycloak:
+  auth-server-url: ${KEYCLOAK_AUTH_SERVER_URL:http://localhost:8080}
+  realm: ${KEYCLOAK_REALM:energy-guard}
+  client-id: ${KEYCLOAK_CLIENT_ID:energy-guard-app}
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:}
+
+server:
+  port: ${PORT:8081}
