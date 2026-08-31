@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/room_list_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const EnergyGuardApp());
@@ -17,7 +17,7 @@ class EnergyGuardApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
-      home: const RoomListScreen(),
+      home: const LoginScreen(),
     );
   }
 }
