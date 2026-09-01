@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: energyguard-test
+  datasource:
+    url: jdbc:h2:mem:energyguard_testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/energy-guard
+
+keycloak:
+  auth-server-url: http://localhost:8080
+  realm: energy-guard
+  client-id: energy-guard-app
+  client-secret: secret
+
+server:
+  port: 8081
