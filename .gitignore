@@ -59,3 +59,19 @@ mobile/ios/*.pbxuser
 mobile/linux/flutter/ephemeral/
 mobile/macos/Flutter/ephemeral/
 mobile/windows/flutter/ephemeral/
+
+# --- Firmware (ESP-IDF) ---
+build/
+sdkconfig
+sdkconfig.old
+sdkconfig.defaults.old
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/sdkconfig.defaults.old
+firmware/managed_components/
+firmware/dependencies.lock
+*.bin
+*.elf
+*.map
+
