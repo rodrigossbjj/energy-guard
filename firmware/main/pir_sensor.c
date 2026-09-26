@@ -9,6 +9,8 @@ void pir_sensor_init(pir_sensor_t *dev, gpio_num_t gpio)
 
     gpio_reset_pin(dev->gpio);
     gpio_set_direction(dev->gpio, GPIO_MODE_INPUT);
+    gpio_pulldown_en(dev->gpio);
+    gpio_pullup_dis(dev->gpio);
     gpio_set_pull_mode(dev->gpio, GPIO_PULLDOWN_ONLY);
 }
 

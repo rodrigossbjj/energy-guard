@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "driver/gpio.h"
 
-#define LED_INDICATOR_DEFAULT_GPIO GPIO_NUM_13
+#define LED_INDICATOR_DEFAULT_GPIO GPIO_NUM_27
 
 /**
  * @brief Initialize the LED indicator GPIO.

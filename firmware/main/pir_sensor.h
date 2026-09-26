@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "driver/gpio.h"
 
-#define PIR_SENSOR_DEFAULT_GPIO GPIO_NUM_17
+#define PIR_SENSOR_DEFAULT_GPIO GPIO_NUM_18
 
 typedef struct {
     gpio_num_t gpio;
