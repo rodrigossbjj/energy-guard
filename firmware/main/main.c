@@ -9,12 +9,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
 
 #include "led_indicator.h"
 #include "pir_sensor.h"
 #include "dht22_sensor.h"
 
-static const char *TAG = "SENSOR_TEST";
+static const char *TAG = "ENERGY_GUARD";
 
 // Instâncias dos Sensores e Dispositivos
 static pir_sensor_t s_pir;
@@ -24,21 +25,57 @@ static dht22_sensor_t s_dht;
 static int s_leituras_ok = 0;
 static int s_leituras_falhas = 0;
 
-static void verificar_pir(void)
+/**
+ * @brief Monitora o sensor PIR e loga alterações no estado de presença.
+ */
+static void monitorar_pir(void)
 {
     bool mudou_estado = false;
     bool ocupado = pir_sensor_update(&s_pir, &mudou_estado);
 
     if (mudou_estado) {
         if (ocupado) {
-            ESP_LOGI(TAG, ">>> [PIR] MOVIMENTO DETECTADO  (deteccao #%d)", s_pir.motion_count);
+            ESP_LOGI(TAG, ">>> [PIR] MOVIMENTO DETECTADO (detecção #%d)", s_pir.motion_count);
         } else {
-            ESP_LOGI(TAG, ">>> [PIR] movimento cessou / sala parada");
+            ESP_LOGI(TAG, ">>> [PIR] Movimento cessou / Sala livre");
         }
     }
 }
 
-static void verificar_dht(void)
+/**
+ * @brief Aplica a regra de acionamento do indicador (LED) com base na temperatura e presença.
+ * @param temp Temperatura medida em °C.
+ * @param sala_ocupada Indica se o PIR detectou presença na sala.
+ */
+static void processar_regra_atentuacao(float temp, bool sala_ocupada)
+{
+    // Regra: Liga indicador se temp < 24°C ou se a sala estiver ocupada
+    if (temp < 24.0f || sala_ocupada) {
+        led_indicator_set(true);
+        ESP_LOGI(TAG, ">>> [LED LIGADO] Temp: %.1f C | Presença: %s",
+                 temp, sala_ocupada ? "SIM" : "NÃO");
+    } else {
+        led_indicator_set(false);
+        ESP_LOGI(TAG, ">>> [LED DESLIGADO] Temp: %.1f C | Presença: NÃO", temp);
+    }
+}
+
+/**
+ * @brief Imprime o resumo de diagnóstico do sistema no console serial.
+ */
+static void exibir_diagnostico(void)
+{
+    printf("\n--- RESUMO DO DIAGNÓSTICO ---\n");
+    printf("Leituras DHT OK      : %d\n", s_leituras_ok);
+    printf("Leituras DHT com erro: %d\n", s_leituras_falhas);
+    printf("Detecções do PIR     : %d\n", s_pir.motion_count);
+    printf("-----------------------------\n\n");
+}
+
+/**
+ * @brief Realiza a leitura ambiental (DHT22), aciona a regra de atuação e gera logs.
+ */
+static void monitorar_ambiente(void)
 {
     float temp = 0.0f;
     float umid = 0.0f;
@@ -53,31 +90,19 @@ static void verificar_dht(void)
 
     s_leituras_ok++;
 
-    // -------------------------------------------------------
-    // CONTROLE DO LED PELA TEMPERATURA
-    // -------------------------------------------------------
-    if (temp < 24.0f) {
-        led_indicator_set(true);
-        ESP_LOGI(TAG, ">>> [DHT] Temperatura abaixo de 24 C - LED LIGADO");
-    } else {
-        led_indicator_set(false);
-        ESP_LOGI(TAG, ">>> [DHT] Temperatura igual/acima de 24 C - LED DESLIGADO");
-    }
+    bool sala_ocupada = s_pir.last_state;
 
-    // Sensação térmica
+    // Processa regras de atuação baseadas nos sensores
+    processar_regra_atentuacao(temp, sala_ocupada);
+
+    // Sensação térmica e log das variáveis ambientais
     float sensacao = dht22_compute_heat_index(temp, umid);
-    bool sala_ocupada = (s_pir.last_state == true);
+    ESP_LOGI(TAG, "[DHT] Temp: %.1f C | Umid: %.1f %% | Sensação: %.1f C | Sala: %s",
+             temp, umid, sensacao, sala_ocupada ? "OCUPADA" : "LIVRE");
 
-    ESP_LOGI(TAG, "[DHT] Temp: %.1f C  |  Umid: %.1f %%  |  Sensacao: %.1f C  |  Sala: %s",
-             temp, umid, sensacao, sala_ocupada ? "OCUPADA" : "sem atividade");
-
-    // Resumo a cada 10 leituras com sucesso
+    // Resumo periódico a cada 10 leituras com sucesso
     if (s_leituras_ok % 10 == 0) {
-        printf("\n--- RESUMO DO DIAGNOSTICO ---\n");
-        printf("Leituras DHT OK      : %d\n", s_leituras_ok);
-        printf("Leituras DHT com erro: %d\n", s_leituras_falhas);
-        printf("Deteccoes do PIR     : %d\n", s_pir.motion_count);
-        printf("-----------------------------\n\n");
+        exibir_diagnostico();
     }
 }
 
@@ -89,7 +114,7 @@ void app_main(void)
     dht22_sensor_init(&s_dht, DHT22_SENSOR_DEFAULT_GPIO);
 
     printf("\n========================================\n");
-    printf("  TESTE DE SENSORES - INICIANDO (ESP-IDF)\n");
+    printf("  MONITORAMENTO ENERGY GUARD (ESP-IDF)\n");
     printf("========================================\n");
     printf("Pino DHT22 : GPIO %d\n", DHT22_SENSOR_DEFAULT_GPIO);
     printf("Pino PIR   : GPIO %d\n", PIR_SENSOR_DEFAULT_GPIO);
@@ -99,10 +124,10 @@ void app_main(void)
     printf("----------------------------------------\n\n");
 
     while (1) {
-        verificar_pir();
-        verificar_dht();
+        monitorar_pir();
+        monitorar_ambiente();
 
-        // Loop a cada 2 segundos (intervalo mínimo do DHT22)
+        // Loop a cada 2 segundos (intervalo mínimo recomendado do DHT22)
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
