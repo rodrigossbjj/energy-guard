@@ -14,6 +14,7 @@
 #include "led_indicator.h"
 #include "pir_sensor.h"
 #include "dht22_sensor.h"
+#include "wifi_manager.h"
 
 static const char *TAG = "ENERGY_GUARD";
 
@@ -65,7 +66,12 @@ static void processar_regra_atentuacao(float temp, bool sala_ocupada)
  */
 static void exibir_diagnostico(void)
 {
+    char ip_str[16] = {0};
+    wifi_manager_get_ip_str(ip_str, sizeof(ip_str));
+
     printf("\n--- RESUMO DO DIAGNÓSTICO ---\n");
+    printf("Status Wi-Fi         : %s (IP: %s)\n",
+           wifi_manager_is_connected() ? "CONECTADO" : "DESCONECTADO", ip_str);
     printf("Leituras DHT OK      : %d\n", s_leituras_ok);
     printf("Leituras DHT com erro: %d\n", s_leituras_falhas);
     printf("Detecções do PIR     : %d\n", s_pir.motion_count);
@@ -97,8 +103,9 @@ static void monitorar_ambiente(void)
 
     // Sensação térmica e log das variáveis ambientais
     float sensacao = dht22_compute_heat_index(temp, umid);
-    ESP_LOGI(TAG, "[DHT] Temp: %.1f C | Umid: %.1f %% | Sensação: %.1f C | Sala: %s",
-             temp, umid, sensacao, sala_ocupada ? "OCUPADA" : "LIVRE");
+    ESP_LOGI(TAG, "[DHT] Temp: %.1f C | Umid: %.1f %% | Sensação: %.1f C | Sala: %s | Wi-Fi: %s",
+             temp, umid, sensacao, sala_ocupada ? "OCUPADA" : "LIVRE",
+             wifi_manager_is_connected() ? "ON" : "OFF");
 
     // Resumo periódico a cada 10 leituras com sucesso
     if (s_leituras_ok % 10 == 0) {
@@ -108,7 +115,7 @@ static void monitorar_ambiente(void)
 
 void app_main(void)
 {
-    // Inicialização dos Módulos
+    // Inicialização dos Módulos Hardware
     led_indicator_init(LED_INDICATOR_DEFAULT_GPIO);
     pir_sensor_init(&s_pir, PIR_SENSOR_DEFAULT_GPIO);
     dht22_sensor_init(&s_dht, DHT22_SENSOR_DEFAULT_GPIO);
@@ -122,6 +129,17 @@ void app_main(void)
     printf("----------------------------------------\n");
     printf("O PIR precisa de 30-60s para estabilizar.\n");
     printf("----------------------------------------\n\n");
+
+    // Inicialização da Conexão Wi-Fi
+    ESP_LOGI(TAG, "Iniciando gerenciador de Wi-Fi...");
+    esp_err_t wifi_ret = wifi_manager_init();
+    if (wifi_ret == ESP_OK) {
+        char ip_buf[16] = {0};
+        wifi_manager_get_ip_str(ip_buf, sizeof(ip_buf));
+        ESP_LOGI(TAG, "Wi-Fi pronto! IP Atribuído: %s", ip_buf);
+    } else {
+        ESP_LOGW(TAG, "Operando em Modo Offline (Wi-Fi não conectado).");
+    }
 
     while (1) {
         monitorar_pir();
