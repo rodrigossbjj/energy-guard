@@ -1,0 +1,21 @@
+menu "Configuração do Wi-Fi EnergyGuard"
+
+    config ESP_WIFI_SSID
+        string "WiFi SSID"
+        default "EnergyGuard_WiFi"
+        help
+            SSID da rede Wi-Fi a ser conectada pelo ESP32.
+
+    config ESP_WIFI_PASS
+        string "WiFi Password"
+        default "12345678"
+        help
+            Senha da rede Wi-Fi.
+
+    config ESP_MAXIMUM_RETRY
+        int "Número Máximo de Tentativas de Conexão"
+        default 5
+        help
+            Quantidade de tentativas de reconexão antes de marcar falha no Wi-Fi.
+
+endmenu
