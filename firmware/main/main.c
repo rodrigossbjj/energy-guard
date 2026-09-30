@@ -44,20 +44,21 @@ static void monitorar_pir(void)
 }
 
 /**
- * @brief Aplica a regra de acionamento do indicador (LED) com base na temperatura e presença.
+ * @brief Aplica a regra de acionamento dos indicadores (LEDs) com base na temperatura e presença.
  * @param temp Temperatura medida em °C.
  * @param sala_ocupada Indica se o PIR detectou presença na sala.
  */
 static void processar_regra_atentuacao(float temp, bool sala_ocupada)
 {
-    // Regra: Liga indicador se temp < 24°C ou se a sala estiver ocupada
-    if (temp < 24.0f || sala_ocupada) {
-        led_indicator_set(true);
-        ESP_LOGI(TAG, ">>> [LED LIGADO] Temp: %.1f C | Presença: %s",
-                 temp, sala_ocupada ? "SIM" : "NÃO");
+    // Nova Regra: LED Vermelho (D27) aceso se sem presença E temp < 24°C
+    // LED Verde (D26) aceso nas demais condições ("Tudo bem")
+    bool condicao_economia = (temp < 24.0f || sala_ocupada);
+    led_indicator_set_condition(condicao_economia);
+
+    if (condicao_economia) {
+        ESP_LOGI(TAG, ">>> [DHT] Temperatura abaixo de 24°C e PIR sem ocupação - LED Vermelho (D27)");
     } else {
-        led_indicator_set(false);
-        ESP_LOGI(TAG, ">>> [LED DESLIGADO] Temp: %.1f C | Presença: NÃO", temp);
+        ESP_LOGI(TAG, ">>> [DHT] Condição normal (Tudo bem) - LED Verde (D26)");
     }
 }
 
@@ -116,16 +117,17 @@ static void monitorar_ambiente(void)
 void app_main(void)
 {
     // Inicialização dos Módulos Hardware
-    led_indicator_init(LED_INDICATOR_DEFAULT_GPIO);
+    led_indicator_init(LED_INDICATOR_RED_GPIO, LED_INDICATOR_GREEN_GPIO);
     pir_sensor_init(&s_pir, PIR_SENSOR_DEFAULT_GPIO);
     dht22_sensor_init(&s_dht, DHT22_SENSOR_DEFAULT_GPIO);
 
     printf("\n========================================\n");
     printf("  MONITORAMENTO ENERGY GUARD (ESP-IDF)\n");
     printf("========================================\n");
-    printf("Pino DHT22 : GPIO %d\n", DHT22_SENSOR_DEFAULT_GPIO);
-    printf("Pino PIR   : GPIO %d\n", PIR_SENSOR_DEFAULT_GPIO);
-    printf("Pino LED   : GPIO %d\n", LED_INDICATOR_DEFAULT_GPIO);
+    printf("Pino DHT22       : GPIO %d\n", DHT22_SENSOR_DEFAULT_GPIO);
+    printf("Pino PIR         : GPIO %d\n", PIR_SENSOR_DEFAULT_GPIO);
+    printf("LED Vermelho (D27): GPIO %d\n", LED_INDICATOR_RED_GPIO);
+    printf("LED Verde (D26)   : GPIO %d\n", LED_INDICATOR_GREEN_GPIO);
     printf("----------------------------------------\n");
     printf("O PIR precisa de 30-60s para estabilizar.\n");
     printf("----------------------------------------\n\n");
@@ -141,11 +143,19 @@ void app_main(void)
         ESP_LOGW(TAG, "Operando em Modo Offline (Wi-Fi não conectado).");
     }
 
+    TickType_t ultima_leitura_dht = xTaskGetTickCount();
+
     while (1) {
         monitorar_pir();
-        monitorar_ambiente();
+        led_indicator_update();
 
-        // Loop a cada 2 segundos (intervalo mínimo recomendado do DHT22)
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        // Leitura do DHT a cada 2000 ms (2 segundos)
+        if ((xTaskGetTickCount() - ultima_leitura_dht) >= pdMS_TO_TICKS(2000)) {
+            ultima_leitura_dht = xTaskGetTickCount();
+            monitorar_ambiente();
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(20)); // Atualiza LEDs e PIR suavemente a cada 20ms
     }
 }
+
