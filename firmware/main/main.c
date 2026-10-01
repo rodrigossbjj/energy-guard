@@ -16,12 +16,14 @@
 #include "dht22_sensor.h"
 #include "wifi_manager.h"
 #include "device_id.h"
+#include "config_button.h"
 
 static const char *TAG = "ENERGY_GUARD";
 
 // Instâncias dos Sensores e Dispositivos
 static pir_sensor_t s_pir;
 static dht22_sensor_t s_dht;
+static config_button_t s_btn_config;
 
 // Contadores de diagnóstico
 static int s_leituras_ok = 0;
@@ -121,12 +123,14 @@ void app_main(void)
     led_indicator_init(LED_INDICATOR_RED_GPIO, LED_INDICATOR_GREEN_GPIO);
     pir_sensor_init(&s_pir, PIR_SENSOR_DEFAULT_GPIO);
     dht22_sensor_init(&s_dht, DHT22_SENSOR_DEFAULT_GPIO);
+    config_button_init(&s_btn_config, CONFIG_BUTTON_DEFAULT_GPIO, CONFIG_BUTTON_DEFAULT_ACTIVE_LEVEL);
 
     printf("\n========================================\n");
     printf("  MONITORAMENTO ENERGY GUARD (ESP-IDF)\n");
     printf("========================================\n");
     printf("Pino DHT22       : GPIO %d\n", DHT22_SENSOR_DEFAULT_GPIO);
     printf("Pino PIR         : GPIO %d\n", PIR_SENSOR_DEFAULT_GPIO);
+    printf("Botão Config     : GPIO %d\n", CONFIG_BUTTON_DEFAULT_GPIO);
     printf("LED Vermelho (D27): GPIO %d\n", LED_INDICATOR_RED_GPIO);
     printf("LED Verde (D26)   : GPIO %d\n", LED_INDICATOR_GREEN_GPIO);
     printf("----------------------------------------\n");
@@ -165,13 +169,21 @@ void app_main(void)
         monitorar_pir();
         led_indicator_update();
 
+        // Monitoramento com Debounce do Botão de Configuração
+        bool btn_evento_pressionado = false;
+        config_button_update(&s_btn_config, &btn_evento_pressionado);
+        if (btn_evento_pressionado) {
+            ESP_LOGI(TAG, ">>> EVENTO CAPTURADO: Botão de Configuração (GPIO %d) Pressionado!", s_btn_config.gpio);
+            // Próximos passos: ativação do BLE e transição de modo
+        }
+
         // Leitura do DHT a cada 2000 ms (2 segundos)
         if ((xTaskGetTickCount() - ultima_leitura_dht) >= pdMS_TO_TICKS(2000)) {
             ultima_leitura_dht = xTaskGetTickCount();
             monitorar_ambiente();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(20)); // Atualiza LEDs e PIR suavemente a cada 20ms
+        vTaskDelay(pdMS_TO_TICKS(20)); // Atualiza LEDs, PIR e Botão suavemente a cada 20ms
     }
 }
 
