@@ -15,6 +15,7 @@
 #include "pir_sensor.h"
 #include "dht22_sensor.h"
 #include "wifi_manager.h"
+#include "device_id.h"
 
 static const char *TAG = "ENERGY_GUARD";
 
@@ -142,6 +143,21 @@ void app_main(void)
     } else {
         ESP_LOGW(TAG, "Operando em Modo Offline (Wi-Fi não conectado).");
     }
+
+    // Identificação Única da Placa (Etapa 1)
+    char mac_str[18] = {0};
+    char short_id[16] = {0};
+    char ble_name[32] = {0};
+    device_id_get_mac_str(mac_str, sizeof(mac_str));
+    device_id_get_short(short_id, sizeof(short_id));
+    device_id_get_ble_name(ble_name, sizeof(ble_name));
+
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "IDENTIFICAÇÃO ÚNICA DA PLACA");
+    ESP_LOGI(TAG, "MAC Address STA  : %s", mac_str);
+    ESP_LOGI(TAG, "ID Curto         : %s", short_id);
+    ESP_LOGI(TAG, "Nome Anúncio BLE : %s", ble_name);
+    ESP_LOGI(TAG, "========================================");
 
     TickType_t ultima_leitura_dht = xTaskGetTickCount();
 
