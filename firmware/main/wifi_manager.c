@@ -99,7 +99,14 @@ esp_err_t wifi_manager_init(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "Wi-Fi Station inicializado com sucesso.");
+    // Limita a potência de transmissão de rádio para 10 dBm (40 em unidades de 0.25 dBm)
+    // Isso reduz em 90% a emissão de radiofrequência eletromagnética (EMI), evitando saturação do sensor analógico PIR na protoboard
+    esp_wifi_set_max_tx_power(40);
+
+    // Ativa modem sleep para que o circuito de RF durma entre os beacons, cessando a radiação contínua
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_MIN_MODEM));
+
+    ESP_LOGI(TAG, "Wi-Fi Station inicializado com sucesso (TX Power limitado a 10 dBm).");
 
     /* Aguarda a conexão (WIFI_CONNECTED_BIT) ou falha (WIFI_FAIL_BIT) */
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
