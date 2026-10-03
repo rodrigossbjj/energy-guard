@@ -17,6 +17,7 @@
 #include "wifi_manager.h"
 #include "device_id.h"
 #include "config_button.h"
+#include "ble_config_service.h"
 
 static const char *TAG = "ENERGY_GUARD";
 
@@ -174,7 +175,13 @@ void app_main(void)
         config_button_update(&s_btn_config, &btn_evento_pressionado);
         if (btn_evento_pressionado) {
             ESP_LOGI(TAG, ">>> EVENTO CAPTURADO: Botão de Configuração (GPIO %d) Pressionado!", s_btn_config.gpio);
-            // Próximos passos: ativação do BLE e transição de modo
+            if (ble_config_service_is_active()) {
+                ESP_LOGI(TAG, "Desativando Modo de Configuração BLE sob demanda...");
+                ble_config_service_stop();
+            } else {
+                ESP_LOGI(TAG, "Ativando Modo de Configuração BLE sob demanda...");
+                ble_config_service_start();
+            }
         }
 
         // Leitura do DHT a cada 2000 ms (2 segundos)
