@@ -118,52 +118,8 @@ static void monitorar_ambiente(void)
     }
 }
 
-void app_main(void)
+static void sensor_monitoring_task(void *pvParameters)
 {
-    // Inicialização dos Módulos Hardware
-    led_indicator_init(LED_INDICATOR_RED_GPIO, LED_INDICATOR_GREEN_GPIO);
-    pir_sensor_init(&s_pir, PIR_SENSOR_DEFAULT_GPIO);
-    dht22_sensor_init(&s_dht, DHT22_SENSOR_DEFAULT_GPIO);
-    config_button_init(&s_btn_config, CONFIG_BUTTON_DEFAULT_GPIO, CONFIG_BUTTON_DEFAULT_ACTIVE_LEVEL);
-
-    printf("\n========================================\n");
-    printf("  MONITORAMENTO ENERGY GUARD (ESP-IDF)\n");
-    printf("========================================\n");
-    printf("Pino DHT22       : GPIO %d\n", DHT22_SENSOR_DEFAULT_GPIO);
-    printf("Pino PIR         : GPIO %d\n", PIR_SENSOR_DEFAULT_GPIO);
-    printf("Botão Config     : GPIO %d\n", CONFIG_BUTTON_DEFAULT_GPIO);
-    printf("LED Vermelho (D27): GPIO %d\n", LED_INDICATOR_RED_GPIO);
-    printf("LED Verde (D26)   : GPIO %d\n", LED_INDICATOR_GREEN_GPIO);
-    printf("----------------------------------------\n");
-    printf("O PIR precisa de 30-60s para estabilizar.\n");
-    printf("----------------------------------------\n\n");
-
-    // Inicialização da Conexão Wi-Fi
-    ESP_LOGI(TAG, "Iniciando gerenciador de Wi-Fi...");
-    esp_err_t wifi_ret = wifi_manager_init();
-    if (wifi_ret == ESP_OK) {
-        char ip_buf[16] = {0};
-        wifi_manager_get_ip_str(ip_buf, sizeof(ip_buf));
-        ESP_LOGI(TAG, "Wi-Fi pronto! IP Atribuído: %s", ip_buf);
-    } else {
-        ESP_LOGW(TAG, "Operando em Modo Offline (Wi-Fi não conectado).");
-    }
-
-    // Identificação Única da Placa (Etapa 1)
-    char mac_str[18] = {0};
-    char short_id[16] = {0};
-    char ble_name[32] = {0};
-    device_id_get_mac_str(mac_str, sizeof(mac_str));
-    device_id_get_short(short_id, sizeof(short_id));
-    device_id_get_ble_name(ble_name, sizeof(ble_name));
-
-    ESP_LOGI(TAG, "========================================");
-    ESP_LOGI(TAG, "IDENTIFICAÇÃO ÚNICA DA PLACA");
-    ESP_LOGI(TAG, "MAC Address STA  : %s", mac_str);
-    ESP_LOGI(TAG, "ID Curto         : %s", short_id);
-    ESP_LOGI(TAG, "Nome Anúncio BLE : %s", ble_name);
-    ESP_LOGI(TAG, "========================================");
-
     TickType_t ultima_leitura_dht = xTaskGetTickCount();
 
     while (1) {
@@ -192,5 +148,55 @@ void app_main(void)
 
         vTaskDelay(pdMS_TO_TICKS(20)); // Atualiza LEDs, PIR e Botão suavemente a cada 20ms
     }
+}
+
+void app_main(void)
+{
+    // Inicialização dos Módulos Hardware
+    led_indicator_init(LED_INDICATOR_RED_GPIO, LED_INDICATOR_GREEN_GPIO);
+    pir_sensor_init(&s_pir, PIR_SENSOR_DEFAULT_GPIO);
+    dht22_sensor_init(&s_dht, DHT22_SENSOR_DEFAULT_GPIO);
+    config_button_init(&s_btn_config, CONFIG_BUTTON_DEFAULT_GPIO, CONFIG_BUTTON_DEFAULT_ACTIVE_LEVEL);
+
+    printf("\n========================================\n");
+    printf("  MONITORAMENTO ENERGY GUARD (ESP-IDF)\n");
+    printf("========================================\n");
+    printf("Pino DHT22       : GPIO %d\n", DHT22_SENSOR_DEFAULT_GPIO);
+    printf("Pino PIR         : GPIO %d\n", PIR_SENSOR_DEFAULT_GPIO);
+    printf("Botão Config     : GPIO %d\n", CONFIG_BUTTON_DEFAULT_GPIO);
+    printf("LED Vermelho (D27): GPIO %d\n", LED_INDICATOR_RED_GPIO);
+    printf("LED Verde (D26)   : GPIO %d\n", LED_INDICATOR_GREEN_GPIO);
+    printf("----------------------------------------\n");
+    printf("O PIR precisa de 30-60s para estabilizar.\n");
+    printf("----------------------------------------\n\n");
+
+    // Inicialização da Conexão Wi-Fi (Core 0)
+    ESP_LOGI(TAG, "Iniciando gerenciador de Wi-Fi...");
+    esp_err_t wifi_ret = wifi_manager_init();
+    if (wifi_ret == ESP_OK) {
+        char ip_buf[16] = {0};
+        wifi_manager_get_ip_str(ip_buf, sizeof(ip_buf));
+        ESP_LOGI(TAG, "Wi-Fi pronto! IP Atribuído: %s", ip_buf);
+    } else {
+        ESP_LOGW(TAG, "Operando em Modo Offline (Wi-Fi não conectado).");
+    }
+
+    // Identificação Única da Placa (Etapa 1)
+    char mac_str[18] = {0};
+    char short_id[16] = {0};
+    char ble_name[32] = {0};
+    device_id_get_mac_str(mac_str, sizeof(mac_str));
+    device_id_get_short(short_id, sizeof(short_id));
+    device_id_get_ble_name(ble_name, sizeof(ble_name));
+
+    ESP_LOGI(TAG, "========================================");
+    ESP_LOGI(TAG, "IDENTIFICAÇÃO ÚNICA DA PLACA");
+    ESP_LOGI(TAG, "MAC Address STA  : %s", mac_str);
+    ESP_LOGI(TAG, "ID Curto         : %s", short_id);
+    ESP_LOGI(TAG, "Nome Anúncio BLE : %s", ble_name);
+    ESP_LOGI(TAG, "========================================");
+
+    // Cria tarefa dedicada para sensores e atuadores fixada no Core 1 (isolada das interrupções de Wi-Fi do Core 0)
+    xTaskCreatePinnedToCore(sensor_monitoring_task, "sensor_task", 4096, NULL, 5, NULL, 1);
 }
 
