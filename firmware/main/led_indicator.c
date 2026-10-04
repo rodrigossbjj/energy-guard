@@ -83,9 +83,35 @@ void led_indicator_set_condition(bool condicao_economia)
     }
 }
 
+static bool s_config_mode = false;
+static int64_t s_ultimo_pisca_ms = 0;
+static bool s_estado_pisca_green = false;
+
+void led_indicator_set_config_mode(bool config_mode)
+{
+    s_config_mode = config_mode;
+    if (!config_mode) {
+        led_indicator_set_condition(s_condicao_economia);
+    } else {
+        s_alvo_red = 0;
+        s_alvo_green = 255;
+        s_estado_pisca_green = true;
+    }
+}
+
 void led_indicator_update(void)
 {
     int64_t agora_ms = esp_timer_get_time() / 1000;
+
+    if (s_config_mode) {
+        // Pisca lentamente o LED Verde (D26) a cada 500ms no Modo Configuração
+        if (agora_ms - s_ultimo_pisca_ms >= 500) {
+            s_ultimo_pisca_ms = agora_ms;
+            s_estado_pisca_green = !s_estado_pisca_green;
+            s_alvo_red = 0;
+            s_alvo_green = s_estado_pisca_green ? 255 : 0;
+        }
+    }
 
     if (agora_ms - s_ultima_transicao_ms < INTERVALO_TRANSICAO_MS) {
         return;

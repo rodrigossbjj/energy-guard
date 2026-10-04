@@ -41,5 +41,11 @@ int led_indicator_get_red_brightness(void);
  */
 int led_indicator_get_green_brightness(void);
 
+/**
+ * @brief Ativa ou desativa o modo de indicação visual de configuração (LED Verde D26 piscando lentamente).
+ * @param config_mode true para piscar LED Verde (Modo Configuração), false para retornar ao modo normal.
+ */
+void led_indicator_set_config_mode(bool config_mode);
+
 #endif // LED_INDICATOR_H
 
