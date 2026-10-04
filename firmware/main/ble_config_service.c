@@ -60,33 +60,58 @@ static int ble_config_gap_event(struct ble_gap_event *event, void *arg)
     return 0;
 }
 
+/* UUID do Serviço de Configuração Energy Guard (0xFF00) */
+static const ble_uuid16_t gatt_svc_config_uuid = BLE_UUID16_INIT(0xFF00);
+
+static const struct ble_gatt_svc_def s_gatt_svcs[] = {
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = &gatt_svc_config_uuid.u,
+        .characteristics = (struct ble_gatt_chr_def[]) {
+            { 0 } /* Fim das características */
+        },
+    },
+    { 0 } /* Fim dos serviços */
+};
+
 /**
  * @brief Configura e dispara os anúncios BLE GAP com o nome do dispositivo.
  */
 static void ble_config_start_advertising(void)
 {
     struct ble_hs_adv_fields fields;
+    struct ble_hs_adv_fields rsp_fields;
     struct ble_gap_adv_params adv_params;
     int rc;
 
-    memset(&fields, 0, sizeof(fields));
-
-    /* Configuração dos flags padrão e potência de transmissão */
-    fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
-    fields.tx_pwr_lvl_is_present = 1;
-    fields.tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO;
-
-    /* Nome dinâmico do dispositivo (Energy Guard - EG-XXXXXX) */
     char ble_name[32] = {0};
     device_id_get_ble_name(ble_name, sizeof(ble_name));
-
-    fields.name = (uint8_t *)ble_name;
-    fields.name_len = strlen(ble_name);
-    fields.name_is_complete = 1;
 
     rc = ble_svc_gap_device_name_set(ble_name);
     if (rc != 0) {
         ESP_LOGE(TAG, "Erro ao definir nome GAP no NimBLE: rc=%d", rc);
+    }
+
+    /* 1. Pacote de Anúncio Principal (Advertising Data - max 31 bytes)
+     * Flags (3 bytes) + Service UUID 16-bit (4 bytes) + Nome completo (24 bytes) = 31 bytes <= 31 bytes
+     */
+    memset(&fields, 0, sizeof(fields));
+    fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
+
+    /* Inclui o UUID de Serviço no Anúncio para os scanners mobile identificarem */
+    fields.uuids16 = (ble_uuid16_t[]){ BLE_UUID16_INIT(0xFF00) };
+    fields.num_uuids16 = 1;
+    fields.uuids16_is_complete = 1;
+
+    /* 2. Pacote de Resposta de Escaneamento (Scan Response Data - max 31 bytes) */
+    memset(&rsp_fields, 0, sizeof(rsp_fields));
+    rsp_fields.name = (uint8_t *)ble_name;
+    rsp_fields.name_len = strlen(ble_name);
+    rsp_fields.name_is_complete = 1;
+
+    rc = ble_gap_adv_rsp_set_fields(&rsp_fields);
+    if (rc != 0) {
+        ESP_LOGW(TAG, "Aviso ao definir campos de resposta de escaneamento: rc=%d", rc);
     }
 
     rc = ble_gap_adv_set_fields(&fields);
@@ -95,7 +120,7 @@ static void ble_config_start_advertising(void)
         return;
     }
 
-    /* Parâmetros de anúncios indiretos conectáveis */
+    /* 3. Parâmetros de anúncios indiretos conectáveis */
     memset(&adv_params, 0, sizeof(adv_params));
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
@@ -107,6 +132,7 @@ static void ble_config_start_advertising(void)
     } else {
         ESP_LOGI(TAG, "========================================");
         ESP_LOGI(TAG, ">>> ANÚNCIO BLE ATIVO: '%s' <<<", ble_name);
+        ESP_LOGI(TAG, ">>> UUID de Serviço: 0xFF00 <<<");
         ESP_LOGI(TAG, "========================================");
     }
 }
@@ -168,6 +194,26 @@ esp_err_t ble_config_service_init(void)
     ble_svc_gap_init();
     ble_svc_gatt_init();
 
+    /* Registra serviço GATT customizado no servidor NimBLE */
+    rc = ble_gatts_count_cfg(s_gatt_svcs);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Erro em ble_gatts_count_cfg: rc=%d", rc);
+        return ESP_FAIL;
+    }
+
+    rc = ble_gatts_add_svcs(s_gatt_svcs);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Erro em ble_gatts_add_svcs: rc=%d", rc);
+        return ESP_FAIL;
+    }
+
+    /* Inicia o Servidor GATT */
+    rc = ble_gatts_start();
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Erro em ble_gatts_start: rc=%d", rc);
+        return ESP_FAIL;
+    }
+
     /* Configuração das callbacks */
     ble_hs_cfg.reset_cb = ble_config_on_reset;
     ble_hs_cfg.sync_cb = ble_config_on_sync;
@@ -176,7 +222,7 @@ esp_err_t ble_config_service_init(void)
     nimble_port_freertos_init(ble_config_host_task);
 
     s_ble_initialized = true;
-    ESP_LOGI(TAG, "Driver NimBLE inicializado.");
+    ESP_LOGI(TAG, "Driver NimBLE inicializado com sucesso.");
     return ESP_OK;
 }
 
