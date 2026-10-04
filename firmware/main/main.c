@@ -1,14 +1,13 @@
 /*
- * TESTE DE SENSORES - DHT22 + PIR HC-SR501
- * Projeto: Sistema de Monitoramento de Desperdício Energético
- *
- * Arquitetura Modular ESP-IDF (FreeRTOS)
+ * SISTEMA DE MONITORAMENTO ENERGY GUARD (ESP-IDF)
+ * Arquitetura Modular FreeRTOS
  */
 
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "nvs_flash.h"
 #include "driver/gpio.h"
 
 #include "led_indicator.h"
@@ -54,7 +53,7 @@ static void monitorar_pir(void)
  */
 static void processar_regra_atentuacao(float temp, bool sala_ocupada)
 {
-    // Nova Regra: LED Vermelho (D27) aceso se sem presença E temp < 24°C
+    // LED Vermelho (D27) aceso se sem presença E temp < 24°C
     // LED Verde (D26) aceso nas demais condições ("Tudo bem")
     bool condicao_economia = (temp < 24.0f || sala_ocupada);
     led_indicator_set_condition(condicao_economia);
@@ -118,45 +117,85 @@ static void monitorar_ambiente(void)
     }
 }
 
+/**
+ * @brief Tarefa dedicada para o monitoramento de sensores e atuadores (Core 1).
+ */
 static void sensor_monitoring_task(void *pvParameters)
 {
     TickType_t ultima_leitura_dht = xTaskGetTickCount();
 
     while (1) {
-        monitorar_pir();
-        led_indicator_update();
+        bool modo_config_ativo = ble_config_service_is_active();
 
-        // Monitoramento com Debounce do Botão de Configuração
+        // Monitoramento constante do Botão de Configuração com Debounce
         bool btn_evento_pressionado = false;
         config_button_update(&s_btn_config, &btn_evento_pressionado);
         if (btn_evento_pressionado) {
-            ESP_LOGI(TAG, ">>> EVENTO CAPTURADO: Botão de Configuração (GPIO %d) Pressionado!", s_btn_config.gpio);
             if (ble_config_service_is_active()) {
-                ESP_LOGI(TAG, "Desativando Modo de Configuração BLE sob demanda...");
+                ESP_LOGI(TAG, ">>> Desativando Modo de Configuração BLE. Retornando ao Modo Normal...");
                 ble_config_service_stop();
+                led_indicator_set_config_mode(false);
             } else {
-                ESP_LOGI(TAG, "Ativando Modo de Configuração BLE sob demanda...");
+                ESP_LOGI(TAG, ">>> Ativando Modo de Configuração BLE! Pausando sensores e piscando LED Verde (D26)...");
                 ble_config_service_start();
+                led_indicator_set_config_mode(true);
             }
         }
 
-        // Leitura do DHT a cada 2000 ms (2 segundos)
-        if ((xTaskGetTickCount() - ultima_leitura_dht) >= pdMS_TO_TICKS(2000)) {
-            ultima_leitura_dht = xTaskGetTickCount();
-            monitorar_ambiente();
+        // Atualiza animação dos LEDs (fading ou pisca em modo de configuração)
+        led_indicator_update();
+
+        // Durante o Modo de Configuração BLE, PAUSA a leitura do PIR e DHT22
+        // para dedicar a execução totalmente ao modo de configuração
+        if (!modo_config_ativo) {
+            monitorar_pir();
+
+            // Leitura do DHT22 a cada 2 segundos
+            if ((xTaskGetTickCount() - ultima_leitura_dht) >= pdMS_TO_TICKS(2000)) {
+                ultima_leitura_dht = xTaskGetTickCount();
+                monitorar_ambiente();
+            }
         }
 
-        vTaskDelay(pdMS_TO_TICKS(20)); // Atualiza LEDs, PIR e Botão suavemente a cada 20ms
+        vTaskDelay(pdMS_TO_TICKS(20)); // Frequência de 50 Hz
     }
+}
+
+/**
+ * @brief Tarefa assíncrona para inicialização e conexão do Wi-Fi (Core 0).
+ */
+static void wifi_init_task(void *pvParameters)
+{
+    ESP_LOGI(TAG, "Iniciando gerenciador de Wi-Fi em segundo plano...");
+    esp_err_t wifi_ret = wifi_manager_init();
+    if (wifi_ret == ESP_OK) {
+        char ip_buf[16] = {0};
+        wifi_manager_get_ip_str(ip_buf, sizeof(ip_buf));
+        ESP_LOGI(TAG, "Wi-Fi pronto! IP Atribuído: %s", ip_buf);
+    } else {
+        ESP_LOGW(TAG, "Operando em Modo Offline (Wi-Fi não conectado).");
+    }
+    vTaskDelete(NULL);
 }
 
 void app_main(void)
 {
+    // Inicialização do NVS Flash
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
     // Inicialização dos Módulos Hardware
     led_indicator_init(LED_INDICATOR_RED_GPIO, LED_INDICATOR_GREEN_GPIO);
     pir_sensor_init(&s_pir, PIR_SENSOR_DEFAULT_GPIO);
     dht22_sensor_init(&s_dht, DHT22_SENSOR_DEFAULT_GPIO);
     config_button_init(&s_btn_config, CONFIG_BUTTON_DEFAULT_GPIO, CONFIG_BUTTON_DEFAULT_ACTIVE_LEVEL);
+
+    // Inicialização do NimBLE (Bluetooth vem DESLIGADO por padrão)
+    ble_config_service_init();
 
     printf("\n========================================\n");
     printf("  MONITORAMENTO ENERGY GUARD (ESP-IDF)\n");
@@ -170,18 +209,7 @@ void app_main(void)
     printf("O PIR precisa de 30-60s para estabilizar.\n");
     printf("----------------------------------------\n\n");
 
-    // Inicialização da Conexão Wi-Fi (Core 0)
-    ESP_LOGI(TAG, "Iniciando gerenciador de Wi-Fi...");
-    esp_err_t wifi_ret = wifi_manager_init();
-    if (wifi_ret == ESP_OK) {
-        char ip_buf[16] = {0};
-        wifi_manager_get_ip_str(ip_buf, sizeof(ip_buf));
-        ESP_LOGI(TAG, "Wi-Fi pronto! IP Atribuído: %s", ip_buf);
-    } else {
-        ESP_LOGW(TAG, "Operando em Modo Offline (Wi-Fi não conectado).");
-    }
-
-    // Identificação Única da Placa (Etapa 1)
+    // Identificação Única da Placa
     char mac_str[18] = {0};
     char short_id[16] = {0};
     char ble_name[32] = {0};
@@ -196,7 +224,9 @@ void app_main(void)
     ESP_LOGI(TAG, "Nome Anúncio BLE : %s", ble_name);
     ESP_LOGI(TAG, "========================================");
 
-    // Cria tarefa dedicada para sensores e atuadores fixada no Core 1 (isolada das interrupções de Wi-Fi do Core 0)
+    // Cria tarefa para inicialização do Wi-Fi no Core 0 sem bloquear a execução principal
+    xTaskCreatePinnedToCore(wifi_init_task, "wifi_init_task", 4096, NULL, 3, NULL, 0);
+
+    // Cria tarefa dedicada para sensores, atuadores e botão no Core 1
     xTaskCreatePinnedToCore(sensor_monitoring_task, "sensor_task", 4096, NULL, 5, NULL, 1);
 }
-
