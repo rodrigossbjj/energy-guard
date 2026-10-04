@@ -84,8 +84,6 @@ void led_indicator_set_condition(bool condicao_economia)
 }
 
 static bool s_config_mode = false;
-static int64_t s_ultimo_pisca_ms = 0;
-static bool s_estado_pisca_green = false;
 
 void led_indicator_set_config_mode(bool config_mode)
 {
@@ -94,8 +92,7 @@ void led_indicator_set_config_mode(bool config_mode)
         led_indicator_set_condition(s_condicao_economia);
     } else {
         s_alvo_red = 0;
-        s_alvo_green = 255;
-        s_estado_pisca_green = true;
+        s_alvo_green = 0; // Começa esmaecendo até apagar e depois reacende devagar
     }
 }
 
@@ -104,12 +101,12 @@ void led_indicator_update(void)
     int64_t agora_ms = esp_timer_get_time() / 1000;
 
     if (s_config_mode) {
-        // Pisca lentamente o LED Verde (D26) a cada 500ms no Modo Configuração
-        if (agora_ms - s_ultimo_pisca_ms >= 500) {
-            s_ultimo_pisca_ms = agora_ms;
-            s_estado_pisca_green = !s_estado_pisca_green;
-            s_alvo_red = 0;
-            s_alvo_green = s_estado_pisca_green ? 255 : 0;
+        s_alvo_red = 0;
+        // Transição suave de pulsar (pulsing / breathing) do LED Verde (D26)
+        if (s_brilho_green >= 255) {
+            s_alvo_green = 0;
+        } else if (s_brilho_green <= 0) {
+            s_alvo_green = 255;
         }
     }
 
@@ -128,11 +125,12 @@ void led_indicator_update(void)
     }
 
     // Transição gradual do LED Verde (D26)
+    int passo_green = s_config_mode ? 3 : PASSO_TRANSICAO; // Passo 3 para esmaecer bem devagar (~1.7s para acender / apagar)
     if (s_brilho_green < s_alvo_green) {
-        s_brilho_green += PASSO_TRANSICAO;
+        s_brilho_green += passo_green;
         if (s_brilho_green > s_alvo_green) s_brilho_green = s_alvo_green;
     } else if (s_brilho_green > s_alvo_green) {
-        s_brilho_green -= PASSO_TRANSICAO;
+        s_brilho_green -= passo_green;
         if (s_brilho_green < s_alvo_green) s_brilho_green = s_alvo_green;
     }
 
