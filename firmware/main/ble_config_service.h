@@ -39,6 +39,22 @@ esp_err_t ble_config_service_stop(void);
  */
 bool ble_config_service_is_active(void);
 
+/**
+ * @brief Callback disparada quando credenciais Wi-Fi são recebidas via características BLE.
+ */
+typedef void (*ble_config_wifi_cb_t)(const char *ssid, const char *password);
+
+/**
+ * @brief Registra a callback para tratar novas credenciais Wi-Fi recebidas via BLE.
+ */
+void ble_config_service_set_credentials_cb(ble_config_wifi_cb_t cb);
+
+/**
+ * @brief Atualiza o status de conexão Wi-Fi na característica BLE e envia notificação aos clientes.
+ * @param status 0=Aguardando, 1=Conectando, 2=Sucesso, 3=Erro
+ */
+void ble_config_service_set_wifi_status(uint8_t status);
+
 #ifdef __cplusplus
 }
 #endif

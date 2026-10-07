@@ -20,6 +20,14 @@ static bool s_ble_initialized = false;
 static bool s_ble_active = false;
 static uint8_t s_own_addr_type = BLE_OWN_ADDR_PUBLIC;
 
+static uint16_t s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
+static uint16_t s_wifi_status_val_handle = 0;
+
+static char s_rx_ssid[33] = {0};
+static char s_rx_pass[65] = {0};
+static uint8_t s_wifi_status = 0; // 0=Aguardando, 1=Conectando, 2=Sucesso, 3=Erro
+static ble_config_wifi_cb_t s_credentials_cb = NULL;
+
 static void ble_config_start_advertising(void);
 
 /**
@@ -31,8 +39,10 @@ static int ble_config_gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_CONNECT:
         ESP_LOGI(TAG, "[BLE GAP] Conexão estabelecida: status=%d, handle=%d",
                  event->connect.status, event->connect.conn_handle);
-        if (event->connect.status != 0) {
-            /* Conexão falhou, reinicia anúncio se ativo */
+        if (event->connect.status == 0) {
+            s_conn_handle = event->connect.conn_handle;
+        } else {
+            s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
             if (s_ble_active) {
                 ble_config_start_advertising();
             }
@@ -41,6 +51,7 @@ static int ble_config_gap_event(struct ble_gap_event *event, void *arg)
 
     case BLE_GAP_EVENT_DISCONNECT:
         ESP_LOGI(TAG, "[BLE GAP] Dispositivo desconectado: razão=%d", event->disconnect.reason);
+        s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
         if (s_ble_active) {
             ble_config_start_advertising();
         }
@@ -60,18 +71,109 @@ static int ble_config_gap_event(struct ble_gap_event *event, void *arg)
     return 0;
 }
 
-/* UUID do Serviço de Configuração Energy Guard (0xFF00) */
+/* UUIDs do Serviço e Características GATT */
 static const ble_uuid16_t gatt_svc_config_uuid = BLE_UUID16_INIT(0xFF00);
+static const ble_uuid16_t gatt_chr_dev_id_uuid = BLE_UUID16_INIT(0xFF01);
+static const ble_uuid16_t gatt_chr_wifi_ssid_uuid = BLE_UUID16_INIT(0xFF02);
+static const ble_uuid16_t gatt_chr_wifi_pass_uuid = BLE_UUID16_INIT(0xFF03);
+static const ble_uuid16_t gatt_chr_wifi_status_uuid = BLE_UUID16_INIT(0xFF04);
+
+static int ble_config_gatt_access(uint16_t conn_handle, uint16_t attr_handle,
+                                  struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+    uint16_t uuid16 = ble_uuid_u16(ctxt->chr->uuid);
+    int rc;
+
+    switch (uuid16) {
+    case 0xFF01: /* Device ID (Read Only) */
+        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+            char short_id[16] = {0};
+            device_id_get_short(short_id, sizeof(short_id));
+            rc = os_mbuf_append(ctxt->om, short_id, strlen(short_id));
+            return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+        }
+        break;
+
+    case 0xFF02: /* Wi-Fi SSID (Write Only) */
+        if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
+            uint16_t len = OS_MBUF_PKTLEN(ctxt->om);
+            if (len >= sizeof(s_rx_ssid)) {
+                return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+            }
+            rc = ble_hs_mbuf_to_flat(ctxt->om, s_rx_ssid, len, NULL);
+            if (rc != 0) {
+                return BLE_ATT_ERR_UNLIKELY;
+            }
+            s_rx_ssid[len] = '\0';
+            ESP_LOGI(TAG, "BLE SSID recebido: '%s'", s_rx_ssid);
+            return 0;
+        }
+        break;
+
+    case 0xFF03: /* Wi-Fi Password (Write Only) */
+        if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
+            uint16_t len = OS_MBUF_PKTLEN(ctxt->om);
+            if (len >= sizeof(s_rx_pass)) {
+                return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+            }
+            rc = ble_hs_mbuf_to_flat(ctxt->om, s_rx_pass, len, NULL);
+            if (rc != 0) {
+                return BLE_ATT_ERR_UNLIKELY;
+            }
+            s_rx_pass[len] = '\0';
+            ESP_LOGI(TAG, "BLE Senha recebida (tamanho: %d)", len);
+
+            if (strlen(s_rx_ssid) > 0 && s_credentials_cb != NULL) {
+                s_credentials_cb(s_rx_ssid, s_rx_pass);
+            }
+            return 0;
+        }
+        break;
+
+    case 0xFF04: /* Wi-Fi Status (Read / Notify) */
+        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+            rc = os_mbuf_append(ctxt->om, &s_wifi_status, sizeof(s_wifi_status));
+            return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    return BLE_ATT_ERR_UNLIKELY;
+}
 
 static const struct ble_gatt_svc_def s_gatt_svcs[] = {
     {
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
         .uuid = &gatt_svc_config_uuid.u,
         .characteristics = (struct ble_gatt_chr_def[]) {
-            { 0 } /* Fim das características */
+            {
+                .uuid = &gatt_chr_dev_id_uuid.u,
+                .access_cb = ble_config_gatt_access,
+                .flags = BLE_GATT_CHR_F_READ,
+            },
+            {
+                .uuid = &gatt_chr_wifi_ssid_uuid.u,
+                .access_cb = ble_config_gatt_access,
+                .flags = BLE_GATT_CHR_F_WRITE,
+            },
+            {
+                .uuid = &gatt_chr_wifi_pass_uuid.u,
+                .access_cb = ble_config_gatt_access,
+                .flags = BLE_GATT_CHR_F_WRITE,
+            },
+            {
+                .uuid = &gatt_chr_wifi_status_uuid.u,
+                .access_cb = ble_config_gatt_access,
+                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
+                .val_handle = &s_wifi_status_val_handle,
+            },
+            { 0 } /* Terminação das características */
         },
     },
-    { 0 } /* Fim dos serviços */
+    { 0 } /* Terminação dos serviços */
 };
 
 /**
@@ -273,3 +375,27 @@ bool ble_config_service_is_active(void)
 {
     return s_ble_active;
 }
+
+void ble_config_service_set_credentials_cb(ble_config_wifi_cb_t cb)
+{
+    s_credentials_cb = cb;
+}
+
+void ble_config_service_set_wifi_status(uint8_t status)
+{
+    s_wifi_status = status;
+    ESP_LOGI(TAG, "Status Wi-Fi atualizado via BLE: %d", status);
+
+    if (s_conn_handle != BLE_HS_CONN_HANDLE_NONE && s_wifi_status_val_handle != 0) {
+        struct os_mbuf *om = ble_hs_mbuf_from_flat(&s_wifi_status, sizeof(s_wifi_status));
+        if (om != NULL) {
+            int rc = ble_gatts_notify_custom(s_conn_handle, s_wifi_status_val_handle, om);
+            if (rc != 0) {
+                ESP_LOGW(TAG, "Aviso ao enviar notificação BLE: rc=%d", rc);
+            } else {
+                ESP_LOGI(TAG, "Notificação BLE enviada: status=%d", status);
+            }
+        }
+    }
+}
+
