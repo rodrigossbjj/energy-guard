@@ -4,8 +4,10 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
@@ -28,6 +30,57 @@ static config_button_t s_btn_config;
 // Contadores de diagnóstico
 static int s_leituras_ok = 0;
 static int s_leituras_falhas = 0;
+
+typedef struct {
+    char ssid[33];
+    char password[65];
+} wifi_prov_req_t;
+
+static QueueHandle_t s_wifi_prov_queue = NULL;
+
+static void wifi_prov_task(void *pvParameters)
+{
+    wifi_prov_req_t req;
+    while (1) {
+        if (xQueueReceive(s_wifi_prov_queue, &req, portMAX_DELAY) == pdTRUE) {
+            ESP_LOGI(TAG, ">>> Recebidas credenciais Wi-Fi via BLE! SSID: '%s'", req.ssid);
+            
+            // Status BLE = 1 (Conectando)
+            ble_config_service_set_wifi_status(1);
+
+            esp_err_t err = wifi_manager_connect_with_credentials(req.ssid, req.password);
+            if (err == ESP_OK) {
+                ESP_LOGI(TAG, ">>> Conexão Wi-Fi BEM-SUCEDIDA! Notificando app e desligando BLE...");
+                // Status BLE = 2 (Sucesso)
+                ble_config_service_set_wifi_status(2);
+
+                vTaskDelay(pdMS_TO_TICKS(2000));
+
+                ble_config_service_stop();
+                led_indicator_set_config_mode(false);
+            } else {
+                ESP_LOGE(TAG, ">>> Falha na conexão Wi-Fi com as credenciais enviadas.");
+                // Status BLE = 3 (Erro)
+                ble_config_service_set_wifi_status(3);
+            }
+        }
+    }
+}
+
+static void on_wifi_credentials_received(const char *ssid, const char *password)
+{
+    if (!ssid || !s_wifi_prov_queue) {
+        return;
+    }
+
+    wifi_prov_req_t req = {0};
+    strncpy(req.ssid, ssid, sizeof(req.ssid) - 1);
+    if (password) {
+        strncpy(req.password, password, sizeof(req.password) - 1);
+    }
+
+    xQueueSend(s_wifi_prov_queue, &req, 0);
+}
 
 /**
  * @brief Monitora o sensor PIR e loga alterações no estado de presença.
@@ -194,8 +247,13 @@ void app_main(void)
     dht22_sensor_init(&s_dht, DHT22_SENSOR_DEFAULT_GPIO);
     config_button_init(&s_btn_config, CONFIG_BUTTON_DEFAULT_GPIO, CONFIG_BUTTON_DEFAULT_ACTIVE_LEVEL);
 
+    // Fila e Tarefa para processamento assíncrono de credenciais Wi-Fi via BLE
+    s_wifi_prov_queue = xQueueCreate(2, sizeof(wifi_prov_req_t));
+    xTaskCreatePinnedToCore(wifi_prov_task, "wifi_prov_task", 4096, NULL, 4, NULL, 0);
+
     // Inicialização do NimBLE (Bluetooth vem DESLIGADO por padrão)
     ble_config_service_init();
+    ble_config_service_set_credentials_cb(on_wifi_credentials_received);
 
     printf("\n========================================\n");
     printf("  MONITORAMENTO ENERGY GUARD (ESP-IDF)\n");
