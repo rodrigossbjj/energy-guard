@@ -83,9 +83,32 @@ void led_indicator_set_condition(bool condicao_economia)
     }
 }
 
+static bool s_config_mode = false;
+
+void led_indicator_set_config_mode(bool config_mode)
+{
+    s_config_mode = config_mode;
+    if (!config_mode) {
+        led_indicator_set_condition(s_condicao_economia);
+    } else {
+        s_alvo_red = 0;
+        s_alvo_green = 0; // Começa esmaecendo até apagar e depois reacende devagar
+    }
+}
+
 void led_indicator_update(void)
 {
     int64_t agora_ms = esp_timer_get_time() / 1000;
+
+    if (s_config_mode) {
+        s_alvo_red = 0;
+        // Transição suave de pulsar (pulsing / breathing) do LED Verde (D26)
+        if (s_brilho_green >= 255) {
+            s_alvo_green = 0;
+        } else if (s_brilho_green <= 0) {
+            s_alvo_green = 255;
+        }
+    }
 
     if (agora_ms - s_ultima_transicao_ms < INTERVALO_TRANSICAO_MS) {
         return;
@@ -102,11 +125,12 @@ void led_indicator_update(void)
     }
 
     // Transição gradual do LED Verde (D26)
+    int passo_green = s_config_mode ? 3 : PASSO_TRANSICAO; // Passo 3 para esmaecer bem devagar (~1.7s para acender / apagar)
     if (s_brilho_green < s_alvo_green) {
-        s_brilho_green += PASSO_TRANSICAO;
+        s_brilho_green += passo_green;
         if (s_brilho_green > s_alvo_green) s_brilho_green = s_alvo_green;
     } else if (s_brilho_green > s_alvo_green) {
-        s_brilho_green -= PASSO_TRANSICAO;
+        s_brilho_green -= passo_green;
         if (s_brilho_green < s_alvo_green) s_brilho_green = s_alvo_green;
     }
 
