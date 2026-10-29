@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/room_model.dart';
+import 'api_config.dart';
+import 'auth_service.dart';
 
 class RoomService {
-  final String baseUrl;
-
-  RoomService({this.baseUrl = 'http://localhost:8081/api/v1/rooms'});
+  String get baseUrl => ApiConfig.roomsUrl;
 
   Future<List<RoomModel>> getRooms({String? authToken}) async {
     final response = await http.get(
       Uri.parse(baseUrl),
-      headers: _buildHeaders(authToken),
-    );
+      headers: _buildHeaders(authToken ?? AuthService.currentToken),
+    ).timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200) {
       final List<dynamic> jsonList = jsonDecode(response.body);
@@ -24,9 +24,9 @@ class RoomService {
   Future<RoomModel> createRoom(Map<String, dynamic> roomData, {String? authToken}) async {
     final response = await http.post(
       Uri.parse(baseUrl),
-      headers: _buildHeaders(authToken),
+      headers: _buildHeaders(authToken ?? AuthService.currentToken),
       body: jsonEncode(roomData),
-    );
+    ).timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 201) {
       return RoomModel.fromJson(jsonDecode(response.body));
@@ -39,9 +39,9 @@ class RoomService {
   Future<RoomModel> updateRoom(String id, Map<String, dynamic> roomData, {String? authToken}) async {
     final response = await http.put(
       Uri.parse('$baseUrl/$id'),
-      headers: _buildHeaders(authToken),
+      headers: _buildHeaders(authToken ?? AuthService.currentToken),
       body: jsonEncode(roomData),
-    );
+    ).timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200) {
       return RoomModel.fromJson(jsonDecode(response.body));
@@ -54,15 +54,21 @@ class RoomService {
   Future<void> deleteRoom(String id, {String? authToken}) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/$id'),
-      headers: _buildHeaders(authToken),
-    );
+      headers: _buildHeaders(authToken ?? AuthService.currentToken),
+    ).timeout(const Duration(seconds: 5));
 
     if (response.statusCode != 204) {
       throw Exception('Falha ao deletar sala: ${response.statusCode}');
     }
   }
 
-  Future<RoomModel> updateRoomStatus(String id, {bool? acStatus, String? occupancyStatus, double? targetTemperature, String? authToken}) async {
+  Future<RoomModel> updateRoomStatus(
+    String id, {
+    bool? acStatus,
+    String? occupancyStatus,
+    double? targetTemperature,
+    String? authToken,
+  }) async {
     final body = <String, dynamic>{};
     if (acStatus != null) body['acStatus'] = acStatus;
     if (occupancyStatus != null) body['occupancyStatus'] = occupancyStatus;
@@ -70,9 +76,9 @@ class RoomService {
 
     final response = await http.patch(
       Uri.parse('$baseUrl/$id/status'),
-      headers: _buildHeaders(authToken),
+      headers: _buildHeaders(authToken ?? AuthService.currentToken),
       body: jsonEncode(body),
-    );
+    ).timeout(const Duration(seconds: 5));
 
     if (response.statusCode == 200) {
       return RoomModel.fromJson(jsonDecode(response.body));

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/api_config.dart';
+import '../services/auth_service.dart';
 import 'main_navigation_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -12,6 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController(text: 'admin@energyguard.com');
   final _passwordController = TextEditingController(text: '123456');
+  final _authService = AuthService();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -24,6 +27,70 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  void _showServerConfigDialog() {
+    final hostController = TextEditingController(text: ApiConfig.host);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.settings_ethernet, color: Colors.indigo),
+            SizedBox(width: 8),
+            Text('Configurar Servidor', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Defina o endereço IP ou Host da API:',
+              style: TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: hostController,
+              decoration: InputDecoration(
+                labelText: 'Host / IP',
+                hintText: 'ex: 192.168.1.15 ou localhost',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                prefixIcon: const Icon(Icons.dns_outlined),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Porta Backend: ${ApiConfig.backendPort} | Porta Keycloak: ${ApiConfig.keycloakPort}',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+            onPressed: () {
+              setState(() {
+                ApiConfig.updateHost(hostController.text);
+              });
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Servidor configurado para: ${ApiConfig.host}'),
+                  backgroundColor: Colors.indigo,
+                ),
+              );
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -31,27 +98,55 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    // Simulação de autenticação com Keycloak / Backend
-    await Future.delayed(const Duration(milliseconds: 1200));
+    try {
+      final result = await _authService.login(
+        _usernameController.text.trim(),
+        _passwordController.text,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _isLoading = false;
-    });
+      setState(() {
+        _isLoading = false;
+      });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Login realizado com sucesso! Bem-vindo ao Energy Guard.'),
-        backgroundColor: Colors.teal,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      if (result['warning'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['warning']),
+            backgroundColor: Colors.orange.shade800,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Autenticado com sucesso via Keycloak!'),
+            backgroundColor: Colors.teal,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-    );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Falha na autenticação: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -76,10 +171,20 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Botão de Ajuste de IP do Servidor
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: IconButton(
+                      icon: const Icon(Icons.settings_outlined, color: Colors.white70),
+                      tooltip: 'Configurar IP do Servidor',
+                      onPressed: _showServerConfigDialog,
+                    ),
+                  ),
+
                   // Logo Hero Display
                   Container(
-                    width: 110,
-                    height: 110,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
@@ -98,18 +203,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Colors.indigo.shade900,
                           child: const Icon(
                             Icons.shield_outlined,
-                            size: 54,
+                            size: 50,
                             color: Colors.tealAccent,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   const Text(
                     'ENERGY GUARD',
                     style: TextStyle(
-                      fontSize: 28,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 2.0,
                       color: Colors.white,
@@ -117,14 +222,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Monitoramento e Gestão Inteligente de Energia',
+                    'Prevenção de Desperdício & Monitoramento Remoto',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.tealAccent.shade100.withAlpha(217),
                     ),
                   ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 28),
 
                   // Login Form Card
                   Card(
@@ -132,9 +237,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    color: Colors.white.withAlpha(242),
+                    color: Colors.white.withAlpha(245),
                     child: Padding(
-                      padding: const EdgeInsets.all(28.0),
+                      padding: const EdgeInsets.all(24.0),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -149,10 +254,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Insira suas credenciais para continuar',
-                              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                              'Servidor atual: ${ApiConfig.host}:${ApiConfig.backendPort}',
+                              style: TextStyle(fontSize: 12, color: Colors.indigo.shade600, fontWeight: FontWeight.w500),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 20),
 
                             // Campo de Usuário / E-mail
                             TextFormField(
@@ -174,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 16),
 
                             // Campo de Senha
                             TextFormField(
@@ -242,7 +347,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 18),
 
                             // Botão Entrar
                             ElevatedButton(
@@ -286,9 +391,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
                   Text(
-                    'Energy Guard Mobile v1.0.0',
+                    'Energy Guard Mobile v1.1.0',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white.withAlpha(153),
