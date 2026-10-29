@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/dashboard_summary_model.dart';
-import '../models/room_model.dart';
 import '../services/dashboard_service.dart';
-import '../services/room_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -14,17 +12,14 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final DashboardService _dashboardService = DashboardService();
-  final RoomService _roomService = RoomService();
-
   late Future<DashboardSummaryModel> _summaryFuture;
   Timer? _pollingTimer;
-  final Set<String> _turningOffRooms = {};
 
   @override
   void initState() {
     super.initState();
     _refreshDashboard();
-    // Auto-refresh a cada 4 segundos para refletir os sensores em tempo real
+    // Auto-refresh a cada 4 segundos para atualizar os alertas em tempo real
     _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (mounted) {
         setState(() {
@@ -44,48 +39,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _summaryFuture = _dashboardService.getSummary();
     });
-  }
-
-  Future<void> _turnOffAcForRoom(RoomModel room) async {
-    setState(() {
-      _turningOffRooms.add(room.id);
-    });
-
-    try {
-      await _roomService.updateRoomStatus(room.id, acStatus: false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Text('Ar-condicionado da sala "${room.name}" desligado com sucesso!'),
-              ],
-            ),
-            backgroundColor: Colors.teal.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        _refreshDashboard();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao desligar o ar-condicionado: $e'),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _turningOffRooms.remove(room.id);
-        });
-      }
-    }
   }
 
   @override
@@ -169,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
-                // BANNER DINÂMICO DE ALERTA DE DESPERDÍCIO DE AR-CONDICIONADO
+                // BANNER DE ALERTA DE DESPERDÍCIO
                 if (hasWastedEnergy)
                   Container(
                     margin: const EdgeInsets.only(bottom: 16),
@@ -200,7 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 color: Colors.white24,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.warning_rounded, color: Colors.white, size: 24),
+                              child: const Icon(Icons.notification_important, color: Colors.white, size: 26),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -208,15 +161,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'Desperdício de Ar-Condicionado!',
+                                    'ALERTA: Desperdício de Ar-Condicionado!',
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 17,
+                                      fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   Text(
-                                    '${summary.wastingAcCount} ${summary.wastingAcCount == 1 ? 'sala está vazia com ar ligado' : 'salas estão vazias com ar ligado'}.',
+                                    '${summary.wastingAcCount} ${summary.wastingAcCount == 1 ? 'sala detectada vazia com ar ligado' : 'salas detectadas vazias com ar ligado'}.',
                                     style: const TextStyle(color: Colors.white70, fontSize: 13),
                                   ),
                                 ],
@@ -276,12 +229,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Operação Eficiente',
-                                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                                  'Operação Normal e Eficiente',
+                                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Nenhum ar-condicionado operando sem pessoas presentes no momento.',
+                                  'Nenhum ar-condicionado funcionando sem ocupação no momento.',
                                   style: TextStyle(color: Colors.white70, fontSize: 12),
                                 ),
                               ],
@@ -299,7 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 10),
 
-                // Grid de KPI Cards com Foco no Ar-Condicionado
+                // Grid de KPI Cards
                 GridView.count(
                   crossAxisCount: 2,
                   shrinkWrap: true,
@@ -309,7 +262,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   childAspectRatio: 1.35,
                   children: [
                     _buildKpiCard(
-                      title: 'Salas com Alerta',
+                      title: 'Salas em Alerta',
                       value: summary.roomsInAlert.toString(),
                       icon: Icons.error_outline,
                       color: summary.roomsInAlert > 0 ? Colors.red.shade700 : Colors.grey.shade600,
@@ -320,7 +273,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       value: summary.wastingAcCount.toString(),
                       icon: Icons.ac_unit,
                       color: summary.wastingAcCount > 0 ? Colors.orange.shade800 : Colors.grey.shade600,
-                      subtitle: 'Desligamento indicado',
+                      subtitle: 'Ambiente ocioso',
                     ),
                     _buildKpiCard(
                       title: 'Salas Ocupadas',
@@ -341,12 +294,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 const SizedBox(height: 24),
 
-                // Seção de Salas com Ar-Condicionado em Desperdício
+                // Lista de Alertas Ativos
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Salas em Desperdício de Ar',
+                      'Alertas que Exigem Verificação',
                       style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.black87),
                     ),
                     Container(
@@ -356,7 +309,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '${summary.alertRooms.length} ${summary.alertRooms.length == 1 ? 'sala' : 'salas'}',
+                        '${summary.alertRooms.length} ${summary.alertRooms.length == 1 ? 'alerta' : 'alertas'}',
                         style: TextStyle(
                           color: summary.alertRooms.isNotEmpty ? Colors.red.shade900 : Colors.grey.shade700,
                           fontWeight: FontWeight.bold,
@@ -380,7 +333,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           SizedBox(width: 16),
                           Expanded(
                             child: Text(
-                              'Nenhuma sala precisando de intervenção remota no momento.',
+                              'Nenhum alerta de desperdício ativo no momento.',
                               style: TextStyle(fontSize: 13, color: Colors.black87),
                             ),
                           ),
@@ -390,14 +343,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   )
                 else
                   ...summary.alertRooms.map((room) {
-                    final isBusy = _turningOffRooms.contains(room.id);
-
                     return Card(
                       elevation: 3,
                       margin: const EdgeInsets.symmetric(vertical: 6),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(color: Colors.red.shade300, width: 1.5),
+                        side: BorderSide(color: Colors.red.shade400, width: 1.5),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(14.0),
@@ -406,7 +357,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             CircleAvatar(
                               backgroundColor: Colors.red.shade100,
                               radius: 22,
-                              child: Icon(Icons.ac_unit, color: Colors.red.shade800, size: 24),
+                              child: Icon(Icons.warning_amber_rounded, color: Colors.red.shade800, size: 26),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -418,35 +369,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                   ),
                                   const SizedBox(height: 2),
-                                  Text(
-                                    '${room.location ?? "Geral"} • Sala VAZIA',
-                                    style: TextStyle(color: Colors.red.shade800, fontSize: 12, fontWeight: FontWeight.w600),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.person_off_outlined, size: 14, color: Colors.red),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Ambiente Vazio • Ar Ligado',
+                                        style: TextStyle(color: Colors.red.shade800, fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
                                   ),
+                                  const SizedBox(height: 2),
                                   Text(
-                                    'Temp: ${room.currentTemperature?.toStringAsFixed(1) ?? room.targetTemperature.toStringAsFixed(1)}°C',
+                                    '${room.location ?? "Local não inf."} • Temp: ${room.currentTemperature?.toStringAsFixed(1) ?? room.targetTemperature.toStringAsFixed(1)}°C',
                                     style: const TextStyle(color: Colors.black54, fontSize: 12),
                                   ),
                                 ],
                               ),
                             ),
-                            ElevatedButton.icon(
-                              onPressed: isBusy ? null : () => _turnOffAcForRoom(room),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFDC2626),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.red.shade300),
                               ),
-                              icon: isBusy
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                    )
-                                  : const Icon(Icons.power_settings_new, size: 16),
-                              label: const Text('Desligar Ar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.ac_unit, color: Colors.red.shade800, size: 18),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'ALERTA',
+                                    style: TextStyle(
+                                      color: Colors.red.shade900,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),

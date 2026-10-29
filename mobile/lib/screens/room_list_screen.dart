@@ -78,34 +78,6 @@ class _RoomListScreenState extends State<RoomListScreen> {
     }
   }
 
-  Future<void> _toggleAcStatus(RoomModel room) async {
-    try {
-      final novoStatus = !room.acStatus;
-      await _roomService.updateRoomStatus(room.id, acStatus: novoStatus);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              novoStatus
-                  ? 'Ar-condicionado da "${room.name}" ligado.'
-                  : 'Ar-condicionado da "${room.name}" desligado com sucesso!',
-            ),
-            backgroundColor: novoStatus ? Colors.blue.shade700 : Colors.teal.shade700,
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      _refreshRooms();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao alterar status do ar-condicionado: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
   Color _getStatusColor(String status) {
     switch (status) {
       case 'OCCUPIED':
@@ -123,7 +95,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
       case 'OCCUPIED':
         return 'Ocupada';
       case 'ALERT_DESPERDICIO':
-        return 'Alerta de Desperdício!';
+        return 'Desperdício Detectado!';
       case 'EMPTY':
       default:
         return 'Vazia';
@@ -135,7 +107,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Salas Monitoradas'),
+        title: const Text('Monitoramento de Salas'),
         backgroundColor: const Color(0xFF1E1B4B),
         foregroundColor: Colors.white,
         actions: [
@@ -248,33 +220,64 @@ class _RoomListScreenState extends State<RoomListScreen> {
                           ),
                         ],
                         const Divider(height: 22),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  room.acStatus ? Icons.ac_unit : Icons.power_off,
-                                  color: room.acStatus ? Colors.blue : Colors.grey,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Ar-Condicionado: ${room.acStatus ? "LIGADO" : "DESLIGADO"}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: room.acStatus ? Colors.blue.shade800 : Colors.grey[700],
+                        
+                        // Estado do Ar-Condicionado (Apenas Leitura / Status)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: room.acStatus ? Colors.blue.shade50 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: room.acStatus ? Colors.blue.shade200 : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    room.acStatus ? Icons.ac_unit : Icons.power_off,
+                                    color: room.acStatus ? Colors.blue.shade700 : Colors.grey.shade600,
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Ar-Condicionado',
+                                        style: TextStyle(fontSize: 11, color: Colors.black54),
+                                      ),
+                                      Text(
+                                        room.acStatus ? 'EM FUNCIONAMENTO' : 'DESLIGADO',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: room.acStatus ? Colors.blue.shade900 : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              if (isWasting)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade700,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'OCIOSO',
+                                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                                   ),
                                 ),
-                              ],
-                            ),
-                            Switch(
-                              value: room.acStatus,
-                              activeColor: Colors.blue,
-                              onChanged: (_) => _toggleAcStatus(room),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 8),
+
+                        const SizedBox(height: 12),
                         Row(
                           children: [
                             const Icon(Icons.thermostat, size: 18, color: Colors.orange),
