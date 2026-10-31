@@ -19,8 +19,16 @@
 #include "device_id.h"
 #include "config_button.h"
 #include "ble_config_service.h"
+#include "telemetry_client.h"
+#include "esp_timer.h"
 
 static const char *TAG = "ENERGY_GUARD";
+
+// Estado de rastreamento de ausência e minutagem de desperdício
+static bool s_in_absence_with_ac = false;
+static int64_t s_absence_start_us = 0;
+static float s_current_temperature = 22.0f;
+static float s_target_temperature = 23.0f;
 
 // Instâncias dos Sensores e Dispositivos
 static pir_sensor_t s_pir;
@@ -83,6 +91,54 @@ static void on_wifi_credentials_received(const char *ssid, const char *password)
 }
 
 /**
+ * @brief Enfileira pacote de telemetria assíncrono para o backend.
+ */
+static void enviar_telemetria(const char *status, bool ac, bool waste, double duration_min)
+{
+    telemetry_payload_t payload = {0};
+    device_id_get_short(payload.device_id, sizeof(payload.device_id));
+    strncpy(payload.occupancy_status, status, sizeof(payload.occupancy_status) - 1);
+    payload.ac_status = ac;
+    payload.current_temperature = s_current_temperature;
+    payload.target_temperature = s_target_temperature;
+    payload.waste_detected = waste;
+    payload.absence_duration_minutes = duration_min;
+
+    telemetry_client_send_async(&payload);
+}
+
+/**
+ * @brief Avalia transições de ausência e presença com ar ligado,
+ *        calculando o tempo exato (minutagem) da ausência quando há nova presença.
+ */
+static void verificar_transicao_presenca(bool sala_ocupada, float temp)
+{
+    s_current_temperature = temp;
+    bool ar_ligado = (temp < 30.0f);
+    bool condicao_desperdicio = (ar_ligado && !sala_ocupada);
+
+    // Transição 1: Início de ausência com ar ligado
+    if (condicao_desperdicio && !s_in_absence_with_ac) {
+        s_in_absence_with_ac = true;
+        s_absence_start_us = esp_timer_get_time();
+        ESP_LOGW(TAG, ">>> [TELEMETRIA] Ausência iniciada com Ar Ligado! Notificando backend...");
+        enviar_telemetria("ALERT_DESPERDICIO", true, true, 0.0);
+    }
+    // Transição 2: Nova presença após período de ausência com ar ligado
+    else if (sala_ocupada && s_in_absence_with_ac) {
+        int64_t now_us = esp_timer_get_time();
+        double duracao_segundos = (double)(now_us - s_absence_start_us) / 1000000.0;
+        double duracao_minutos = duracao_segundos / 60.0;
+        s_in_absence_with_ac = false;
+        s_absence_start_us = 0;
+
+        ESP_LOGI(TAG, ">>> [TELEMETRIA] Nova Presença! Ausência durou %.2f min (%.1f s). Notificando backend...",
+                 duracao_minutos, duracao_segundos);
+        enviar_telemetria("OCCUPIED", ar_ligado, false, duracao_minutos);
+    }
+}
+
+/**
  * @brief Monitora o sensor PIR e loga alterações no estado de presença.
  */
 static void monitorar_pir(void)
@@ -96,6 +152,7 @@ static void monitorar_pir(void)
         } else {
             ESP_LOGI(TAG, ">>> [PIR] Movimento cessou / Sala livre");
         }
+        verificar_transicao_presenca(ocupado, s_current_temperature);
     }
 }
 
@@ -108,7 +165,7 @@ static void processar_regra_atentuacao(float temp, bool sala_ocupada)
 {
     // LED Vermelho (D27) aceso se sem presença E temp < 24°C
     // LED Verde (D26) aceso nas demais condições ("Tudo bem")
-    bool condicao_economia = (temp < 24.0f || sala_ocupada);
+    bool condicao_economia = (temp < 30.0f && !sala_ocupada);
     led_indicator_set_condition(condicao_economia);
 
     if (condicao_economia) {
@@ -157,6 +214,7 @@ static void monitorar_ambiente(void)
 
     // Processa regras de atuação baseadas nos sensores
     processar_regra_atentuacao(temp, sala_ocupada);
+    verificar_transicao_presenca(sala_ocupada, temp);
 
     // Sensação térmica e log das variáveis ambientais
     float sensacao = dht22_compute_heat_index(temp, umid);
@@ -254,6 +312,9 @@ void app_main(void)
     // Inicialização do NimBLE (Bluetooth vem DESLIGADO por padrão)
     ble_config_service_init();
     ble_config_service_set_credentials_cb(on_wifi_credentials_received);
+
+    // Inicialização do Cliente de Telemetria HTTP
+    telemetry_client_init(NULL);
 
     printf("\n========================================\n");
     printf("  MONITORAMENTO ENERGY GUARD (ESP-IDF)\n");
