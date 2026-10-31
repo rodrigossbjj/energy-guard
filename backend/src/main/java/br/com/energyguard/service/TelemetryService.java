@@ -52,6 +52,12 @@ public class TelemetryService {
             }
         }
 
+        if (dto.getAbsenceDurationMinutes() != null && dto.getAbsenceDurationMinutes() > 0) {
+            room.setLastAbsenceMinutes(dto.getAbsenceDurationMinutes());
+            double currentTotal = room.getTotalWastedMinutes() != null ? room.getTotalWastedMinutes() : 0.0;
+            room.setTotalWastedMinutes(currentTotal + dto.getAbsenceDurationMinutes());
+        }
+
         Room updatedRoom = roomRepository.save(room);
         boolean energyWasteDetected = updatedRoom.getOccupancyStatus() == RoomOccupancyStatus.ALERT_DESPERDICIO;
 
@@ -77,6 +83,8 @@ public class TelemetryService {
                 .acStatus(room.getAcStatus())
                 .targetTemperature(room.getTargetTemperature())
                 .currentTemperature(room.getCurrentTemperature())
+                .lastAbsenceMinutes(room.getLastAbsenceMinutes())
+                .totalWastedMinutes(room.getTotalWastedMinutes())
                 .createdAt(room.getCreatedAt())
                 .updatedAt(room.getUpdatedAt())
                 .build();

@@ -87,6 +87,8 @@ public class DashboardService {
                 .acStatus(room.getAcStatus())
                 .targetTemperature(room.getTargetTemperature())
                 .currentTemperature(room.getCurrentTemperature())
+                .lastAbsenceMinutes(room.getLastAbsenceMinutes())
+                .totalWastedMinutes(room.getTotalWastedMinutes())
                 .createdAt(room.getCreatedAt())
                 .updatedAt(room.getUpdatedAt())
                 .build();

@@ -99,6 +99,29 @@ class TelemetryServiceTest {
     }
 
     @Test
+    @DisplayName("Deve registrar e acumular minutagem de ausência quando informada")
+    void processTelemetry_RecordsAbsenceDuration() {
+        room.setTotalWastedMinutes(10.0);
+        DeviceTelemetryDTO dto = DeviceTelemetryDTO.builder()
+                .deviceId(deviceId)
+                .occupancyStatus(RoomOccupancyStatus.OCCUPIED)
+                .acStatus(true)
+                .currentTemperature(22.0)
+                .absenceDurationMinutes(15.5)
+                .build();
+
+        when(roomRepository.findByDeviceId(deviceId)).thenReturn(Optional.of(room));
+        when(roomRepository.save(any(Room.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        TelemetryResponseDTO response = telemetryService.processTelemetry(dto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getRoom().getLastAbsenceMinutes()).isEqualTo(15.5);
+        assertThat(response.getRoom().getTotalWastedMinutes()).isEqualTo(25.5);
+        verify(roomRepository, times(1)).save(room);
+    }
+
+    @Test
     @DisplayName("Deve lançar ResourceNotFoundException para dispositivo não cadastrado")
     void processTelemetry_UnknownDeviceId_ThrowsException() {
         DeviceTelemetryDTO dto = DeviceTelemetryDTO.builder()
