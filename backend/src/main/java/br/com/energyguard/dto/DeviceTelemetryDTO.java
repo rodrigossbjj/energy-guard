@@ -25,4 +25,6 @@ public class DeviceTelemetryDTO {
     private Double targetTemperature;
 
     private Boolean wasteDetected;
+
+    private Double absenceDurationMinutes;
 }

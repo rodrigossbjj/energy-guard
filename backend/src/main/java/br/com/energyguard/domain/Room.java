@@ -45,6 +45,13 @@ public class Room {
     @Column(name = "current_temperature")
     private Double currentTemperature;
 
+    @Column(name = "last_absence_minutes")
+    private Double lastAbsenceMinutes;
+
+    @Column(name = "total_wasted_minutes")
+    @Builder.Default
+    private Double totalWastedMinutes = 0.0;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -64,6 +71,9 @@ public class Room {
         }
         if (this.targetTemperature == null) {
             this.targetTemperature = 23.0;
+        }
+        if (this.totalWastedMinutes == null) {
+            this.totalWastedMinutes = 0.0;
         }
     }
 

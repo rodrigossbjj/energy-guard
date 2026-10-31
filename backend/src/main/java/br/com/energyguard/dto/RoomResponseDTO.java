@@ -24,6 +24,8 @@ public class RoomResponseDTO {
     private Boolean acStatus;
     private Double targetTemperature;
     private Double currentTemperature;
+    private Double lastAbsenceMinutes;
+    private Double totalWastedMinutes;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
