@@ -19,3 +19,14 @@ menu "Configuração do Wi-Fi EnergyGuard"
             Quantidade de tentativas de reconexão antes de marcar falha no Wi-Fi.
 
 endmenu
+
+menu "Configuração do Backend EnergyGuard"
+
+    config BACKEND_TELEMETRY_URL
+        string "URL do Backend para Telemetria"
+        default "http://192.168.1.14:8081/api/v1/telemetry"
+        help
+            URL completa do endpoint /api/v1/telemetry do backend Spring Boot.
+
+endmenu
+
