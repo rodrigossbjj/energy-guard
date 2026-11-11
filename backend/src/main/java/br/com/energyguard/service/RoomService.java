@@ -37,8 +37,6 @@ public class RoomService {
 
         Room room = Room.builder()
                 .name(dto.getName())
-                .location(dto.getLocation())
-                .capacity(dto.getCapacity())
                 .deviceId(dto.getDeviceId())
                 .targetTemperature(dto.getTargetTemperature() != null ? dto.getTargetTemperature() : 23.0)
                 .occupancyStatus(RoomOccupancyStatus.EMPTY)
@@ -77,8 +75,6 @@ public class RoomService {
         }
 
         room.setName(dto.getName());
-        room.setLocation(dto.getLocation());
-        room.setCapacity(dto.getCapacity());
         room.setDeviceId(dto.getDeviceId());
         if (dto.getTargetTemperature() != null) {
             room.setTargetTemperature(dto.getTargetTemperature());
@@ -104,9 +100,6 @@ public class RoomService {
         if (dto.getAcStatus() != null) {
             room.setAcStatus(dto.getAcStatus());
         }
-        if (dto.getCurrentTemperature() != null) {
-            room.setCurrentTemperature(dto.getCurrentTemperature());
-        }
         if (dto.getTargetTemperature() != null) {
             room.setTargetTemperature(dto.getTargetTemperature());
         }
@@ -124,13 +117,10 @@ public class RoomService {
         return RoomResponseDTO.builder()
                 .id(room.getId())
                 .name(room.getName())
-                .location(room.getLocation())
-                .capacity(room.getCapacity())
                 .deviceId(room.getDeviceId())
                 .occupancyStatus(room.getOccupancyStatus())
                 .acStatus(room.getAcStatus())
                 .targetTemperature(room.getTargetTemperature())
-                .currentTemperature(room.getCurrentTemperature())
                 .lastAbsenceMinutes(room.getLastAbsenceMinutes())
                 .totalWastedMinutes(room.getTotalWastedMinutes())
                 .createdAt(room.getCreatedAt())

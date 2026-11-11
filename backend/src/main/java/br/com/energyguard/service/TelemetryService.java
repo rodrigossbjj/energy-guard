@@ -27,10 +27,6 @@ public class TelemetryService {
             room.setAcStatus(dto.getAcStatus());
         }
 
-        if (dto.getCurrentTemperature() != null) {
-            room.setCurrentTemperature(dto.getCurrentTemperature());
-        }
-
         if (dto.getTargetTemperature() != null) {
             room.setTargetTemperature(dto.getTargetTemperature());
         }
@@ -76,13 +72,10 @@ public class TelemetryService {
         return RoomResponseDTO.builder()
                 .id(room.getId())
                 .name(room.getName())
-                .location(room.getLocation())
-                .capacity(room.getCapacity())
                 .deviceId(room.getDeviceId())
                 .occupancyStatus(room.getOccupancyStatus())
                 .acStatus(room.getAcStatus())
                 .targetTemperature(room.getTargetTemperature())
-                .currentTemperature(room.getCurrentTemperature())
                 .lastAbsenceMinutes(room.getLastAbsenceMinutes())
                 .totalWastedMinutes(room.getTotalWastedMinutes())
                 .createdAt(room.getCreatedAt())
