@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -44,6 +45,7 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
   final List<ScanResult> _foundDevices = [];
   StreamSubscription<List<ScanResult>>? _scanSub;
   StreamSubscription<bool>? _isScanningSub;
+  StreamSubscription<BluetoothAdapterState>? _adapterStateSub;
 
   @override
   void initState() {
@@ -70,6 +72,12 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
     });
 
     if (!kIsWeb) {
+      _adapterStateSub = FlutterBluePlus.adapterState.listen((state) {
+        if (!mounted) return;
+        if (state == BluetoothAdapterState.on && _errorMessage != null && _step == _BleStep.scan && !_isScanning) {
+          _startScan();
+        }
+      });
       _startScan();
     }
   }
@@ -78,6 +86,7 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
   void dispose() {
     _scanSub?.cancel();
     _isScanningSub?.cancel();
+    _adapterStateSub?.cancel();
     _bleService.stopScan();
     _bleService.safeDisconnect(_session?.device);
     _ssidController.dispose();
@@ -93,12 +102,29 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
 
     try {
       if (!kIsWeb) {
-        final adapterState = await FlutterBluePlus.adapterState.first;
+        final adapterState = await FlutterBluePlus.adapterState
+            .where((s) => s != BluetoothAdapterState.unknown)
+            .first
+            .timeout(const Duration(seconds: 3), onTimeout: () => BluetoothAdapterState.off);
+
         if (adapterState != BluetoothAdapterState.on) {
-          setState(() {
-            _errorMessage = 'O Bluetooth está desligado. Ative-o para buscar o dispositivo.';
-          });
-          return;
+          if (Platform.isAndroid) {
+            try {
+              await FlutterBluePlus.turnOn();
+            } catch (_) {
+              if (!mounted) return;
+              setState(() {
+                _errorMessage = 'Para buscar o dispositivo, é necessário ativar o Bluetooth.';
+              });
+              return;
+            }
+          } else {
+            if (!mounted) return;
+            setState(() {
+              _errorMessage = 'Ative o Bluetooth na Central de Controle ou Ajustes para buscar o dispositivo.';
+            });
+            return;
+          }
         }
       }
 
