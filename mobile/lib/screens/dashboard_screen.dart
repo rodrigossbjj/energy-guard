@@ -496,7 +496,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Desperdicio de Energia Detectado!',
+                  'Desperdício de Energia Detectado!',
                   style: TextStyle(
                     color: Colors.orange.shade900,
                     fontSize: 15,
