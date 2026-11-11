@@ -34,6 +34,7 @@ class DashboardServiceTest {
                 .name("Sala 1")
                 .occupancyStatus(RoomOccupancyStatus.OCCUPIED)
                 .acStatus(true)
+                .totalWastedMinutes(5.25)
                 .build();
 
         Room room2 = Room.builder()
@@ -41,6 +42,7 @@ class DashboardServiceTest {
                 .name("Sala 2")
                 .occupancyStatus(RoomOccupancyStatus.ALERT_DESPERDICIO)
                 .acStatus(true)
+                .totalWastedMinutes(12.50)
                 .build();
 
         Room room3 = Room.builder()
@@ -48,6 +50,7 @@ class DashboardServiceTest {
                 .name("Sala 3")
                 .occupancyStatus(RoomOccupancyStatus.EMPTY)
                 .acStatus(false)
+                .totalWastedMinutes(0.0)
                 .build();
 
         when(roomRepository.findAll()).thenReturn(List.of(room1, room2, room3));
@@ -61,8 +64,7 @@ class DashboardServiceTest {
         assertThat(summary.getRoomsEmpty()).isEqualTo(1);
         assertThat(summary.getAcOnCount()).isEqualTo(2);
         assertThat(summary.getWastingAcCount()).isEqualTo(1); // apenas room2 (ALERT_DESPERDICIO + AC LIGADO)
-        assertThat(summary.getEstimatedWastedKwhPerHour()).isEqualTo(1.5); // 1 * 1.5
-        assertThat(summary.getEstimatedCostPerHour()).isEqualTo(1.28); // 1.5 * 0.85 = 1.275 -> 1.28
+        assertThat(summary.getTotalWastedMinutes()).isEqualTo(17.75);
         assertThat(summary.getAlertRooms()).hasSize(1);
         assertThat(summary.getAlertRooms().get(0).getName()).isEqualTo("Sala 2");
     }

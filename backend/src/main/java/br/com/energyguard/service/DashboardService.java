@@ -19,10 +19,6 @@ public class DashboardService {
 
     private final RoomRepository roomRepository;
 
-    // Constantes médias para cálculo energético
-    private static final double KW_PER_AC_UNIT = 1.5; // Média de consumo de um AC em kW
-    private static final double ENERGY_TARIFF_BRL = 0.85; // Custo médio por kWh em R$
-
     @Transactional(readOnly = true)
     public DashboardSummaryDTO getDashboardSummary() {
         List<Room> allRooms = roomRepository.findAll();
@@ -47,14 +43,11 @@ public class DashboardService {
                 .filter(r -> Boolean.TRUE.equals(r.getAcStatus()) && r.getOccupancyStatus() != RoomOccupancyStatus.OCCUPIED)
                 .count();
 
-        double rawWastedKwh = wastingAcCount * KW_PER_AC_UNIT;
-        double rawCostBrl = rawWastedKwh * ENERGY_TARIFF_BRL;
+        double rawTotalWastedMinutes = allRooms.stream()
+                .mapToDouble(r -> r.getTotalWastedMinutes() != null ? r.getTotalWastedMinutes() : 0.0)
+                .sum();
 
-        double estimatedWastedKwhPerHour = BigDecimal.valueOf(rawWastedKwh)
-                .setScale(2, RoundingMode.HALF_UP)
-                .doubleValue();
-
-        double estimatedCostPerHour = BigDecimal.valueOf(rawCostBrl)
+        double totalWastedMinutes = BigDecimal.valueOf(rawTotalWastedMinutes)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
 
@@ -70,8 +63,7 @@ public class DashboardService {
                 .roomsInAlert(roomsInAlert)
                 .acOnCount(acOnCount)
                 .wastingAcCount(wastingAcCount)
-                .estimatedWastedKwhPerHour(estimatedWastedKwhPerHour)
-                .estimatedCostPerHour(estimatedCostPerHour)
+                .totalWastedMinutes(totalWastedMinutes)
                 .alertRooms(alertRooms)
                 .build();
     }

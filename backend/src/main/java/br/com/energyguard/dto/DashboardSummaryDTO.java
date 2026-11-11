@@ -19,7 +19,6 @@ public class DashboardSummaryDTO {
     private long roomsInAlert;
     private long acOnCount;
     private long wastingAcCount;
-    private double estimatedWastedKwhPerHour;
-    private double estimatedCostPerHour;
+    private double totalWastedMinutes;
     private List<RoomResponseDTO> alertRooms;
 }

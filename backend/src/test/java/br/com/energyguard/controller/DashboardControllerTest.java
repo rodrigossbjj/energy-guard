@@ -48,8 +48,7 @@ class DashboardControllerTest {
                 .roomsInAlert(1)
                 .acOnCount(3)
                 .wastingAcCount(1)
-                .estimatedWastedKwhPerHour(1.5)
-                .estimatedCostPerHour(1.28)
+                .totalWastedMinutes(18.5)
                 .alertRooms(Collections.emptyList())
                 .build();
 
@@ -61,6 +60,6 @@ class DashboardControllerTest {
                 .andExpect(jsonPath("$.totalRooms").value(5))
                 .andExpect(jsonPath("$.roomsInAlert").value(1))
                 .andExpect(jsonPath("$.wastingAcCount").value(1))
-                .andExpect(jsonPath("$.estimatedCostPerHour").value(1.28));
+                .andExpect(jsonPath("$.totalWastedMinutes").value(18.5));
     }
 }
