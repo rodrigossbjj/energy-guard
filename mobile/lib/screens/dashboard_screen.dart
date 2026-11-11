@@ -60,11 +60,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.shield, color: Colors.tealAccent, size: 22),
-            SizedBox(width: 8),
-            Text('Energy Guard', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
+            SizedBox(
+              width: 30,
+              height: 30,
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.shield,
+                    color: Colors.tealAccent,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('Energy Guard', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
           ],
         ),
         backgroundColor: const Color(0xFF1E1B4B),
