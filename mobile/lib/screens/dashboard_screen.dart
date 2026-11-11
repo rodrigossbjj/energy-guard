@@ -230,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           _buildCompactMetricTile(
                             title: 'Tempo Ocioso',
                             value: _formatDuration(summary.totalWastedMinutes),
-                            subtitle: 'Medido pelo ESP32',
+                            subtitle: 'Medido pelo dispositivo',
                             icon: Icons.timer_outlined,
                             color: const Color(0xFF1E1B4B),
                             bgColor: const Color(0xFFEEF2FF),
@@ -378,7 +378,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '${room.deviceId != null ? 'ESP32: ${room.deviceId} • ' : ''}Ocioso total: ${_formatDuration(room.totalWastedMinutes)}',
+                                      '${room.deviceId != null ? 'Dispositivo: ${room.deviceId} • ' : ''}Ocioso total: ${_formatDuration(room.totalWastedMinutes)}',
                                       style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5),
                                     ),
                                   ],
@@ -496,7 +496,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Oportunidade de Economia!',
+                  'Desperdicio de Energia Detectado!',
                   style: TextStyle(
                     color: Colors.orange.shade900,
                     fontSize: 15,

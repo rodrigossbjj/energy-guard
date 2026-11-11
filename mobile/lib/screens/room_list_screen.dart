@@ -269,7 +269,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
                                   Icon(Icons.developer_board, size: 15, color: Colors.indigo.shade400),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'ESP32: ${room.deviceId}',
+                                    'Dispositivo: ${room.deviceId}',
                                     style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5, fontWeight: FontWeight.w500),
                                   ),
                                 ],
