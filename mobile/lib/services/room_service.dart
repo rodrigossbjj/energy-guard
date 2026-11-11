@@ -43,17 +43,15 @@ class RoomService {
         throw Exception(err['message'] ?? 'Falha ao criar sala');
       }
     } catch (_) {
-      // Criação mock em memória
       final newRoom = RoomModel(
         id: 'mock-room-${DateTime.now().millisecondsSinceEpoch}',
         name: roomData['name'] ?? 'Nova Sala',
-        location: roomData['location'],
-        capacity: roomData['capacity'],
         deviceId: roomData['deviceId'] ?? 'EG-NEW',
         occupancyStatus: 'EMPTY',
         acStatus: false,
         targetTemperature: (roomData['targetTemperature'] as num?)?.toDouble() ?? 23.0,
-        currentTemperature: 25.0,
+        lastAbsenceMinutes: 0.0,
+        totalWastedMinutes: 0.0,
       );
       MockStorage.rooms.add(newRoom);
       return newRoom;
@@ -81,13 +79,12 @@ class RoomService {
         final updated = RoomModel(
           id: old.id,
           name: roomData['name'] ?? old.name,
-          location: roomData['location'] ?? old.location,
-          capacity: roomData['capacity'] ?? old.capacity,
           deviceId: roomData['deviceId'] ?? old.deviceId,
           occupancyStatus: old.occupancyStatus,
           acStatus: old.acStatus,
           targetTemperature: (roomData['targetTemperature'] as num?)?.toDouble() ?? old.targetTemperature,
-          currentTemperature: old.currentTemperature,
+          lastAbsenceMinutes: old.lastAbsenceMinutes,
+          totalWastedMinutes: old.totalWastedMinutes,
         );
         MockStorage.rooms[index] = updated;
         return updated;
@@ -145,13 +142,12 @@ class RoomService {
         final updated = RoomModel(
           id: old.id,
           name: old.name,
-          location: old.location,
-          capacity: old.capacity,
           deviceId: old.deviceId,
           occupancyStatus: (newAc && newOcc == 'EMPTY') ? 'ALERT_DESPERDICIO' : newOcc,
           acStatus: newAc,
           targetTemperature: newTemp,
-          currentTemperature: old.currentTemperature,
+          lastAbsenceMinutes: old.lastAbsenceMinutes,
+          totalWastedMinutes: old.totalWastedMinutes,
         );
         MockStorage.rooms[index] = updated;
         return updated;

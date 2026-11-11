@@ -7,8 +7,7 @@ class DashboardSummaryModel {
   final int roomsInAlert;
   final int acOnCount;
   final int wastingAcCount;
-  final double estimatedWastedKwhPerHour;
-  final double estimatedCostPerHour;
+  final double totalWastedMinutes;
   final List<RoomModel> alertRooms;
 
   DashboardSummaryModel({
@@ -18,8 +17,7 @@ class DashboardSummaryModel {
     required this.roomsInAlert,
     required this.acOnCount,
     required this.wastingAcCount,
-    required this.estimatedWastedKwhPerHour,
-    required this.estimatedCostPerHour,
+    required this.totalWastedMinutes,
     required this.alertRooms,
   });
 
@@ -31,8 +29,7 @@ class DashboardSummaryModel {
       roomsInAlert: json['roomsInAlert'] as int? ?? 0,
       acOnCount: json['acOnCount'] as int? ?? 0,
       wastingAcCount: json['wastingAcCount'] as int? ?? 0,
-      estimatedWastedKwhPerHour: (json['estimatedWastedKwhPerHour'] as num?)?.toDouble() ?? 0.0,
-      estimatedCostPerHour: (json['estimatedCostPerHour'] as num?)?.toDouble() ?? 0.0,
+      totalWastedMinutes: (json['totalWastedMinutes'] as num?)?.toDouble() ?? 0.0,
       alertRooms: (json['alertRooms'] as List<dynamic>?)
               ?.map((item) => RoomModel.fromJson(item as Map<String, dynamic>))
               .toList() ??
