@@ -136,10 +136,11 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
       });
     } catch (e) {
       if (!mounted) return;
+      final cleanError = e.toString().replaceFirst('Exception: ', '');
       setState(() {
         _isConnectingDevice = false;
         _statusMessage = null;
-        _errorMessage = 'Falha ao conectar na placa: $e';
+        _errorMessage = 'Falha ao conectar no dispositivo: $cleanError';
       });
     }
   }
@@ -354,12 +355,15 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _isScanning ? 'Buscando dispositivos próximos...' : 'Dispositivos encontrados',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+              Expanded(
+                child: Text(
+                  _isScanning ? 'Buscando dispositivos...' : 'Dispositivos encontrados',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               TextButton.icon(
@@ -371,7 +375,7 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh, size: 18),
-                label: Text(_isScanning ? 'Buscando' : 'Buscar Dispositivo'),
+                label: Text(_isScanning ? 'Buscando' : 'Buscar'),
               ),
             ],
           ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
@@ -36,12 +37,14 @@ class BleProvisioningService {
   static const String wifiStatusShortUuid = 'ff04';
 
   static bool matchesShortUuid(Guid guid, String shortHex) {
-    final normalized = guid.str128.toLowerCase().replaceAll('-', '');
     final target = shortHex.toLowerCase();
-    // 16-bit UUID em formato 128-bit Bluetooth SIG base: 0000XXXX00001000800000805f9b34fb
-    return normalized == target ||
-        normalized.startsWith('0000$target') ||
-        guid.str.toLowerCase() == target;
+    if (guid == Guid(target)) return true;
+    final normalized128 = guid.str128.toLowerCase().replaceAll('-', '');
+    final normalizedStr = guid.str.toLowerCase().replaceAll('-', '');
+    return normalizedStr == target ||
+        normalized128 == target ||
+        normalized128.startsWith('0000$target') ||
+        normalizedStr.startsWith('0000$target');
   }
 
   static bool isEnergyGuardDevice(ScanResult result) {
@@ -104,19 +107,50 @@ class BleProvisioningService {
       autoConnect: false,
     );
 
-    final services = await device.discoverServices();
+    // Pequena pausa para estabilizar a conexão GATT com o NimBLE
+    await Future.delayed(const Duration(milliseconds: 300));
 
-    BluetoothService? configService;
-    for (final service in services) {
-      if (matchesShortUuid(service.uuid, serviceShortUuid)) {
-        configService = service;
-        break;
+    // Limpa cache GATT no Android para evitar tabelas antigas em cache
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        await device.clearGattCache();
+      } catch (_) {}
+    }
+
+    List<BluetoothService> services = await device.discoverServices();
+
+    BluetoothService? findConfigService(List<BluetoothService> list) {
+      for (final service in list) {
+        if (matchesShortUuid(service.uuid, serviceShortUuid)) {
+          return service;
+        }
+        // Fallback estrutural: verifica se o serviço contém as características 0xFF02 e 0xFF03
+        final hasSsid = service.characteristics.any((c) => matchesShortUuid(c.uuid, wifiSsidShortUuid));
+        final hasPass = service.characteristics.any((c) => matchesShortUuid(c.uuid, wifiPassShortUuid));
+        if (hasSsid && hasPass) {
+          return service;
+        }
       }
+      return null;
+    }
+
+    BluetoothService? configService = findConfigService(services);
+
+    // Retry único caso a descoberta inicial retorne lista incompleta logo após conectar
+    if (configService == null) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      services = await device.discoverServices();
+      configService = findConfigService(services);
     }
 
     if (configService == null) {
+      final foundUuids = services.isEmpty
+          ? 'nenhum'
+          : services.map((s) => s.uuid.str).join(', ');
       await safeDisconnect(device);
-      throw Exception('Serviço Energy Guard (0xFF00) não encontrado neste dispositivo.');
+      throw Exception(
+        'Serviço Energy Guard (0xFF00) não encontrado neste dispositivo. Serviços encontrados: [$foundUuids]',
+      );
     }
 
     BluetoothCharacteristic? devIdChar;
