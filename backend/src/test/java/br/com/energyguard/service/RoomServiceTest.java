@@ -45,13 +45,10 @@ class RoomServiceTest {
         room = Room.builder()
                 .id(roomId)
                 .name("Lab 101")
-                .location("Bloco A")
-                .capacity(30)
                 .deviceId("ESP32-001")
                 .occupancyStatus(RoomOccupancyStatus.EMPTY)
                 .acStatus(false)
                 .targetTemperature(23.0)
-                .currentTemperature(25.0)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -62,8 +59,6 @@ class RoomServiceTest {
     void createRoom_Success() {
         RoomCreateDTO createDTO = RoomCreateDTO.builder()
                 .name("Lab 101")
-                .location("Bloco A")
-                .capacity(30)
                 .deviceId("ESP32-001")
                 .targetTemperature(22.0)
                 .build();
@@ -133,8 +128,6 @@ class RoomServiceTest {
     void updateRoom_Success() {
         RoomUpdateDTO updateDTO = RoomUpdateDTO.builder()
                 .name("Lab 102 Atualizado")
-                .location("Bloco B")
-                .capacity(40)
                 .deviceId("ESP32-002")
                 .targetTemperature(21.0)
                 .build();
@@ -166,7 +159,6 @@ class RoomServiceTest {
         RoomStatusUpdateDTO statusDTO = RoomStatusUpdateDTO.builder()
                 .occupancyStatus(RoomOccupancyStatus.OCCUPIED)
                 .acStatus(true)
-                .currentTemperature(22.5)
                 .build();
 
         when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));

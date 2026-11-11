@@ -57,16 +57,12 @@ class RoomControllerTest {
                 UUID id = UUID.randomUUID();
                 RoomCreateDTO createDTO = RoomCreateDTO.builder()
                                 .name("Sala 101")
-                                .location("Bloco A")
-                                .capacity(30)
                                 .deviceId("ESP32-101")
                                 .build();
 
                 RoomResponseDTO responseDTO = RoomResponseDTO.builder()
                                 .id(id)
                                 .name("Sala 101")
-                                .location("Bloco A")
-                                .capacity(30)
                                 .deviceId("ESP32-101")
                                 .occupancyStatus(RoomOccupancyStatus.EMPTY)
                                 .acStatus(false)
@@ -83,8 +79,7 @@ class RoomControllerTest {
                                 .content(objectMapper.writeValueAsString(createDTO)))
                                 .andExpect(status().isCreated())
                                 .andExpect(jsonPath("$.id").value(id.toString()))
-                                .andExpect(jsonPath("$.name").value("Sala 101"))
-                                .andExpect(jsonPath("$.capacity").value(30));
+                                .andExpect(jsonPath("$.name").value("Sala 101"));
         }
 
         @Test
@@ -92,7 +87,6 @@ class RoomControllerTest {
         void shouldReturn400WhenNameIsBlank() throws Exception {
                 RoomCreateDTO createDTO = RoomCreateDTO.builder()
                                 .name("")
-                                .capacity(10)
                                 .build();
 
                 mockMvc.perform(post("/api/v1/rooms")
@@ -160,13 +154,11 @@ class RoomControllerTest {
                 UUID id = UUID.randomUUID();
                 RoomUpdateDTO updateDTO = RoomUpdateDTO.builder()
                                 .name("Sala 101 Modificada")
-                                .capacity(40)
                                 .build();
 
                 RoomResponseDTO responseDTO = RoomResponseDTO.builder()
                                 .id(id)
                                 .name("Sala 101 Modificada")
-                                .capacity(40)
                                 .build();
 
                 when(roomService.updateRoom(eq(id), any(RoomUpdateDTO.class))).thenReturn(responseDTO);
@@ -176,8 +168,7 @@ class RoomControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(updateDTO)))
                                 .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.name").value("Sala 101 Modificada"))
-                                .andExpect(jsonPath("$.capacity").value(40));
+                                .andExpect(jsonPath("$.name").value("Sala 101 Modificada"));
         }
 
         @Test
@@ -197,7 +188,6 @@ class RoomControllerTest {
                 RoomStatusUpdateDTO statusDTO = RoomStatusUpdateDTO.builder()
                                 .acStatus(true)
                                 .occupancyStatus(RoomOccupancyStatus.OCCUPIED)
-                                .currentTemperature(22.0)
                                 .build();
 
                 RoomResponseDTO responseDTO = RoomResponseDTO.builder()
@@ -205,7 +195,6 @@ class RoomControllerTest {
                                 .name("Sala 101")
                                 .acStatus(true)
                                 .occupancyStatus(RoomOccupancyStatus.OCCUPIED)
-                                .currentTemperature(22.0)
                                 .build();
 
                 when(roomService.updateRoomStatus(eq(id), any(RoomStatusUpdateDTO.class))).thenReturn(responseDTO);
@@ -216,7 +205,6 @@ class RoomControllerTest {
                                 .content(objectMapper.writeValueAsString(statusDTO)))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$.acStatus").value(true))
-                                .andExpect(jsonPath("$.occupancyStatus").value("OCCUPIED"))
-                                .andExpect(jsonPath("$.currentTemperature").value(22.0));
+                                .andExpect(jsonPath("$.occupancyStatus").value("OCCUPIED"));
         }
 }

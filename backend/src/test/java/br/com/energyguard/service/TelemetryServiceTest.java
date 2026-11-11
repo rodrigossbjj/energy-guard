@@ -41,13 +41,10 @@ class TelemetryServiceTest {
         room = Room.builder()
                 .id(UUID.randomUUID())
                 .name("Sala de Reuniões")
-                .location("Bloco C")
-                .capacity(10)
                 .deviceId(deviceId)
                 .occupancyStatus(RoomOccupancyStatus.EMPTY)
                 .acStatus(false)
                 .targetTemperature(23.0)
-                .currentTemperature(26.0)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();

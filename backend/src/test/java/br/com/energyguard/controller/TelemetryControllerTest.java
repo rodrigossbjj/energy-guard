@@ -54,7 +54,6 @@ class TelemetryControllerTest {
                 .deviceId("ESP32-101")
                 .acStatus(true)
                 .occupancyStatus(RoomOccupancyStatus.ALERT_DESPERDICIO)
-                .currentTemperature(24.5)
                 .build();
 
         TelemetryResponseDTO responseDTO = TelemetryResponseDTO.builder()
