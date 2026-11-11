@@ -17,13 +17,10 @@ public class RoomResponseDTO {
 
     private UUID id;
     private String name;
-    private String location;
-    private Integer capacity;
     private String deviceId;
     private RoomOccupancyStatus occupancyStatus;
     private Boolean acStatus;
     private Double targetTemperature;
-    private Double currentTemperature;
     private Double lastAbsenceMinutes;
     private Double totalWastedMinutes;
     private LocalDateTime createdAt;

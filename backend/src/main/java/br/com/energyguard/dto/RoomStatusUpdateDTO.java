@@ -16,7 +16,5 @@ public class RoomStatusUpdateDTO {
 
     private Boolean acStatus;
 
-    private Double currentTemperature;
-
     private Double targetTemperature;
 }

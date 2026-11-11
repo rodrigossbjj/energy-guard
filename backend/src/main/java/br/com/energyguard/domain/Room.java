@@ -22,10 +22,6 @@ public class Room {
     @Column(nullable = false, unique = true)
     private String name;
 
-    private String location;
-
-    private Integer capacity;
-
     @Column(name = "device_id", unique = true)
     private String deviceId;
 
@@ -41,9 +37,6 @@ public class Room {
     @Column(name = "target_temperature")
     @Builder.Default
     private Double targetTemperature = 23.0;
-
-    @Column(name = "current_temperature")
-    private Double currentTemperature;
 
     @Column(name = "last_absence_minutes")
     private Double lastAbsenceMinutes;
