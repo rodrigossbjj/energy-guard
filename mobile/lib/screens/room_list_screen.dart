@@ -21,7 +21,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
   void initState() {
     super.initState();
     _refreshRooms();
-    // Auto-refresh a cada 4 segundos para manter os status e temperaturas sincronizados
+    // Auto-refresh a cada 4 segundos para manter os status sincronizados
     _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (mounted) {
         setState(() {
@@ -41,6 +41,20 @@ class _RoomListScreenState extends State<RoomListScreen> {
     setState(() {
       _roomsFuture = _roomService.getRooms();
     });
+  }
+
+  String _formatDuration(double minutes) {
+    if (minutes <= 0) return '0 min';
+    if (minutes < 1.0) {
+      final secs = (minutes * 60).round();
+      return '$secs s';
+    }
+    if (minutes < 60.0) {
+      return '${minutes.toStringAsFixed(1)} min';
+    }
+    final hours = minutes ~/ 60;
+    final rem = (minutes % 60).round();
+    return '${hours}h ${rem}min';
   }
 
   Future<void> _deleteRoom(RoomModel room) async {
@@ -65,7 +79,11 @@ class _RoomListScreenState extends State<RoomListScreen> {
         await _roomService.deleteRoom(room.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Sala excluída com sucesso!'), backgroundColor: Colors.green),
+            SnackBar(
+              content: const Text('Sala excluída com sucesso!'),
+              backgroundColor: Colors.teal.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
           );
           _refreshRooms();
         }
@@ -82,12 +100,12 @@ class _RoomListScreenState extends State<RoomListScreen> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'OCCUPIED':
-        return Colors.green;
+        return Colors.teal.shade700;
       case 'ALERT_DESPERDICIO':
-        return Colors.red;
+        return Colors.orange.shade800;
       case 'EMPTY':
       default:
-        return Colors.grey;
+        return Colors.grey.shade600;
     }
   }
 
@@ -96,7 +114,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
       case 'OCCUPIED':
         return 'Ocupada';
       case 'ALERT_DESPERDICIO':
-        return 'Desperdício Detectado!';
+        return 'Atenção: Sala Vazia';
       case 'EMPTY':
       default:
         return 'Vazia';
@@ -106,11 +124,12 @@ class _RoomListScreenState extends State<RoomListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Monitoramento de Salas'),
+        title: const Text('Salas Monitoradas'),
         backgroundColor: const Color(0xFF1E1B4B),
         foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           if (MockStorage.isMockMode)
             Container(
@@ -153,12 +172,15 @@ class _RoomListScreenState extends State<RoomListScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const Icon(Icons.cloud_off_outlined, size: 48, color: Colors.indigo),
                     const SizedBox(height: 16),
-                    Text('Erro ao carregar salas: ${snapshot.error}', textAlign: TextAlign.center),
+                    Text('Não foi possível carregar as salas:\n${snapshot.error}', textAlign: TextAlign.center),
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E1B4B),
+                        foregroundColor: Colors.white,
+                      ),
                       onPressed: _refreshRooms,
                       child: const Text('Tentar Novamente'),
                     ),
@@ -174,175 +196,209 @@ class _RoomListScreenState extends State<RoomListScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.meeting_room_outlined, size: 64, color: Colors.grey),
+                  Icon(Icons.meeting_room_outlined, size: 64, color: Colors.indigo),
                   SizedBox(height: 16),
-                  Text('Nenhuma sala cadastrada.', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                  Text('Nenhuma sala cadastrada ainda.', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   SizedBox(height: 8),
-                  Text('Clique no botão "+" abaixo para cadastrar a primeira sala.'),
+                  Text('Toque no botão "+" abaixo para cadastrar a primeira sala.', style: TextStyle(color: Colors.black54)),
                 ],
               ),
             );
           }
 
-          return RefreshIndicator(
-            onRefresh: () async => _refreshRooms(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: rooms.length,
-              itemBuilder: (context, index) {
-                final room = rooms[index];
-                final statusColor = _getStatusColor(room.occupancyStatus);
-                final isWasting = room.occupancyStatus == 'ALERT_DESPERDICIO';
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 880),
+              child: RefreshIndicator(
+                onRefresh: () async => _refreshRooms(),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(14),
+                  itemCount: rooms.length,
+                  itemBuilder: (context, index) {
+                    final room = rooms[index];
+                    final statusColor = _getStatusColor(room.occupancyStatus);
+                    final isWasting = room.occupancyStatus == 'ALERT_DESPERDICIO';
 
-                return Card(
-                  elevation: isWasting ? 4 : 2,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: isWasting
-                        ? BorderSide(color: Colors.red.shade400, width: 2)
-                        : BorderSide.none,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    return Card(
+                      color: Colors.white,
+                      elevation: isWasting ? 3 : 1.5,
+                      margin: const EdgeInsets.symmetric(vertical: 7),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: isWasting
+                            ? BorderSide(color: Colors.orange.shade400, width: 1.5)
+                            : BorderSide(color: Colors.grey.shade200, width: 1),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                room.name,
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    room.name,
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withAlpha(25),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: statusColor.withAlpha(140)),
+                                  ),
+                                  child: Text(
+                                    _getStatusText(room.occupancyStatus),
+                                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11.5),
+                                  ),
+                                ),
+                              ],
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: statusColor.withAlpha(38),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: statusColor),
-                              ),
-                              child: Text(
-                                _getStatusText(room.occupancyStatus),
-                                style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (room.location != null && room.location!.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                              const SizedBox(width: 4),
-                              Text(room.location!, style: const TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        ],
-                        const Divider(height: 22),
-                        
-                        // Estado do Ar-Condicionado (Apenas Leitura / Status)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: room.acStatus ? Colors.blue.shade50 : Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: room.acStatus ? Colors.blue.shade200 : Colors.grey.shade300,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
+                            if (room.deviceId != null && room.deviceId!.isNotEmpty) ...[
+                              const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  Icon(
-                                    room.acStatus ? Icons.ac_unit : Icons.power_off,
-                                    color: room.acStatus ? Colors.blue.shade700 : Colors.grey.shade600,
-                                    size: 22,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Ar-Condicionado',
-                                        style: TextStyle(fontSize: 11, color: Colors.black54),
-                                      ),
-                                      Text(
-                                        room.acStatus ? 'EM FUNCIONAMENTO' : 'DESLIGADO',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                          color: room.acStatus ? Colors.blue.shade900 : Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ],
+                                  Icon(Icons.developer_board, size: 15, color: Colors.indigo.shade400),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'ESP32: ${room.deviceId}',
+                                    style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5, fontWeight: FontWeight.w500),
                                   ),
                                 ],
                               ),
-                              if (isWasting)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade700,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Text(
-                                    'OCIOSO',
-                                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
                             ],
-                          ),
-                        ),
+                            const Divider(height: 20),
 
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(Icons.thermostat, size: 18, color: Colors.orange),
-                            const SizedBox(width: 4),
-                            Text('Alvo: ${room.targetTemperature.toStringAsFixed(1)}°C'),
-                            if (room.currentTemperature != null) ...[
-                              const SizedBox(width: 16),
+                            // Estado do Ar-Condicionado
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: room.acStatus ? Colors.indigo.shade50 : Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: room.acStatus ? Colors.indigo.shade100 : Colors.grey.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        room.acStatus ? Icons.ac_unit : Icons.power_off_outlined,
+                                        color: room.acStatus ? Colors.indigo.shade700 : Colors.grey.shade600,
+                                        size: 21,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Ar-Condicionado',
+                                            style: TextStyle(fontSize: 11, color: Colors.black54),
+                                          ),
+                                          Text(
+                                            room.acStatus ? 'EM FUNCIONAMENTO' : 'DESLIGADO',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                              color: room.acStatus ? Colors.indigo.shade900 : Colors.grey.shade700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  if (isWasting)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade700,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'OCIOSO',
+                                        style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // Métricas Reais: Temperatura de Referência e Tempo Ocioso Registrado
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.thermostat_outlined, size: 17, color: Colors.teal.shade700),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Ref: ${room.targetTemperature.toStringAsFixed(1)}°C',
+                                      style: const TextStyle(fontSize: 13, color: Colors.black87),
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Icon(Icons.timer_outlined, size: 17, color: Colors.indigo.shade600),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Ocioso total: ${_formatDuration(room.totalWastedMinutes)}',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E1B4B)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            if (room.lastAbsenceMinutes != null && room.lastAbsenceMinutes! > 0) ...[
+                              const SizedBox(height: 4),
                               Text(
-                                'Atual: ${room.currentTemperature!.toStringAsFixed(1)}°C',
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                                'Última ausência registrada: ${_formatDuration(room.lastAbsenceMinutes!)}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                               ),
                             ],
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, color: Colors.indigo),
+                                  tooltip: 'Editar sala',
+                                  onPressed: () async {
+                                    final result = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => RoomFormScreen(room: room)),
+                                    );
+                                    if (result == true) {
+                                      _refreshRooms();
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete_outline, color: Colors.red.shade600),
+                                  tooltip: 'Excluir sala',
+                                  onPressed: () => _deleteRoom(room),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.indigo),
-                              tooltip: 'Editar sala',
-                              onPressed: () async {
-                                final result = await Navigator.push<bool>(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => RoomFormScreen(room: room)),
-                                );
-                                if (result == true) {
-                                  _refreshRooms();
-                                }
-                              },
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              tooltip: 'Excluir sala',
-                              onPressed: () => _deleteRoom(room),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
           );
         },
