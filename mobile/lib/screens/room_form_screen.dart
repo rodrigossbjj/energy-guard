@@ -59,6 +59,98 @@ class _RoomFormScreenState extends State<RoomFormScreen> {
     }
   }
 
+  Future<String?> _askPortabilityPassword(String message) async {
+    final passController = TextEditingController();
+    bool obscure = true;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.swap_horiz_rounded, color: Colors.orange, size: 26),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Portabilidade de Sala',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message.replaceFirst('Exception: ', '').replaceFirst('PORTABILITY_REQUIRED: ', ''),
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passController,
+                obscureText: obscure,
+                decoration: InputDecoration(
+                  labelText: 'Senha Administrativa',
+                  hintText: 'Digite a senha (padrão: admin123)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  suffixIcon: IconButton(
+                    icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () => setDlgState(() => obscure = !obscure),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E1B4B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(ctx, passController.text.trim()),
+              child: const Text('Autorizar Portabilidade'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onSaveSuccess(bool wasPortability) {
+    if (!mounted) return;
+    final message = wasPortability
+        ? 'Portabilidade autorizada e sala salva com sucesso!'
+        : (widget.room == null ? 'Sala cadastrada com sucesso!' : 'Sala atualizada com sucesso!');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.teal.shade700,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    Navigator.pop(context, true);
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     final isFormValid = _formKey.currentState!.validate();
     final isCreating = widget.room == null;
@@ -93,25 +185,29 @@ class _RoomFormScreenState extends State<RoomFormScreen> {
       } else {
         await _roomService.updateRoom(widget.room!.id, roomData);
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.room == null ? 'Sala cadastrada com sucesso!' : 'Sala atualizada com sucesso!'),
-            backgroundColor: Colors.teal.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        Navigator.pop(context, true);
-      }
+      _onSaveSuccess(false);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      final errStr = e.toString();
+      if (errStr.contains('PORTABILITY_REQUIRED')) {
+        setState(() => _isLoading = false);
+        final password = await _askPortabilityPassword(errStr);
+        if (password != null && password.isNotEmpty) {
+          setState(() => _isLoading = true);
+          roomData['portabilityPassword'] = password;
+          try {
+            if (widget.room == null) {
+              await _roomService.createRoom(roomData);
+            } else {
+              await _roomService.updateRoom(widget.room!.id, roomData);
+            }
+            _onSaveSuccess(true);
+            return;
+          } catch (retryError) {
+            _showError(retryError.toString().replaceFirst('Exception: ', ''));
+          }
+        }
+      } else {
+        _showError(errStr.replaceFirst('Exception: ', ''));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

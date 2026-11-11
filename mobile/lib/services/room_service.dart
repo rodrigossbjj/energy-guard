@@ -29,67 +29,56 @@ class RoomService {
   }
 
   Future<RoomModel> createRoom(Map<String, dynamic> roomData, {String? authToken}) async {
+    http.Response? response;
     try {
-      final response = await http.post(
+      response = await http.post(
         Uri.parse(baseUrl),
         headers: _buildHeaders(authToken ?? AuthService.currentToken),
         body: jsonEncode(roomData),
       ).timeout(const Duration(seconds: 4));
-
-      if (response.statusCode == 201) {
-        return RoomModel.fromJson(jsonDecode(response.body));
-      } else {
-        final err = jsonDecode(response.body);
-        throw Exception(err['message'] ?? 'Falha ao criar sala');
-      }
     } catch (_) {
-      final newRoom = RoomModel(
-        id: 'mock-room-${DateTime.now().millisecondsSinceEpoch}',
-        name: roomData['name'] ?? 'Nova Sala',
-        deviceId: roomData['deviceId'] ?? 'EG-NEW',
-        occupancyStatus: 'EMPTY',
-        acStatus: false,
-        targetTemperature: (roomData['targetTemperature'] as num?)?.toDouble() ?? 23.0,
-        lastAbsenceMinutes: 0.0,
-        totalWastedMinutes: 0.0,
-      );
-      MockStorage.rooms.add(newRoom);
-      return newRoom;
+      // Falha de rede: utiliza armazenamento simulado (Mock)
+      MockStorage.isMockMode = true;
+      return MockStorage.createRoom(roomData);
+    }
+
+    if (response.statusCode == 201) {
+      MockStorage.isMockMode = false;
+      return RoomModel.fromJson(jsonDecode(response.body));
+    } else {
+      String errorMessage = 'Falha ao criar sala';
+      try {
+        final err = jsonDecode(response.body);
+        errorMessage = err['message'] ?? errorMessage;
+      } catch (_) {}
+      throw Exception(errorMessage);
     }
   }
 
   Future<RoomModel> updateRoom(String id, Map<String, dynamic> roomData, {String? authToken}) async {
+    http.Response? response;
     try {
-      final response = await http.put(
+      response = await http.put(
         Uri.parse('$baseUrl/$id'),
         headers: _buildHeaders(authToken ?? AuthService.currentToken),
         body: jsonEncode(roomData),
       ).timeout(const Duration(seconds: 4));
-
-      if (response.statusCode == 200) {
-        return RoomModel.fromJson(jsonDecode(response.body));
-      } else {
-        final err = jsonDecode(response.body);
-        throw Exception(err['message'] ?? 'Falha ao atualizar sala');
-      }
     } catch (_) {
-      final index = MockStorage.rooms.indexWhere((r) => r.id == id);
-      if (index != -1) {
-        final old = MockStorage.rooms[index];
-        final updated = RoomModel(
-          id: old.id,
-          name: roomData['name'] ?? old.name,
-          deviceId: roomData['deviceId'] ?? old.deviceId,
-          occupancyStatus: old.occupancyStatus,
-          acStatus: old.acStatus,
-          targetTemperature: (roomData['targetTemperature'] as num?)?.toDouble() ?? old.targetTemperature,
-          lastAbsenceMinutes: old.lastAbsenceMinutes,
-          totalWastedMinutes: old.totalWastedMinutes,
-        );
-        MockStorage.rooms[index] = updated;
-        return updated;
-      }
-      throw Exception('Sala não encontrada no mock');
+      // Falha de rede: utiliza armazenamento simulado (Mock)
+      MockStorage.isMockMode = true;
+      return MockStorage.updateRoom(id, roomData);
+    }
+
+    if (response.statusCode == 200) {
+      MockStorage.isMockMode = false;
+      return RoomModel.fromJson(jsonDecode(response.body));
+    } else {
+      String errorMessage = 'Falha ao atualizar sala';
+      try {
+        final err = jsonDecode(response.body);
+        errorMessage = err['message'] ?? errorMessage;
+      } catch (_) {}
+      throw Exception(errorMessage);
     }
   }
 

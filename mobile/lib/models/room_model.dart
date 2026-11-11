@@ -44,4 +44,26 @@ class RoomModel {
       'totalWastedMinutes': totalWastedMinutes,
     };
   }
+
+  RoomModel copyWith({
+    String? id,
+    String? name,
+    String? deviceId,
+    String? occupancyStatus,
+    bool? acStatus,
+    double? targetTemperature,
+    double? lastAbsenceMinutes,
+    double? totalWastedMinutes,
+  }) {
+    return RoomModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      deviceId: deviceId ?? this.deviceId,
+      occupancyStatus: occupancyStatus ?? this.occupancyStatus,
+      acStatus: acStatus ?? this.acStatus,
+      targetTemperature: targetTemperature ?? this.targetTemperature,
+      lastAbsenceMinutes: lastAbsenceMinutes ?? this.lastAbsenceMinutes,
+      totalWastedMinutes: totalWastedMinutes ?? this.totalWastedMinutes,
+    );
+  }
 }
