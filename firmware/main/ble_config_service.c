@@ -309,12 +309,8 @@ esp_err_t ble_config_service_init(void)
         return ESP_FAIL;
     }
 
-    /* Inicia o Servidor GATT */
-    rc = ble_gatts_start();
-    if (rc != 0) {
-        ESP_LOGE(TAG, "Erro em ble_gatts_start: rc=%d", rc);
-        return ESP_FAIL;
-    }
+    /* O ble_gatts_start() é executado automaticamente pelo ble_hs_start()
+     * quando a thread FreeRTOS do NimBLE host inicializa. */
 
     /* Configuração das callbacks */
     ble_hs_cfg.reset_cb = ble_config_on_reset;

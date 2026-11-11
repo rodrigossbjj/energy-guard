@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
@@ -107,15 +106,8 @@ class BleProvisioningService {
       autoConnect: false,
     );
 
-    // Pequena pausa para estabilizar a conexão GATT com o NimBLE
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    // Limpa cache GATT no Android para evitar tabelas antigas em cache
-    if (!kIsWeb && Platform.isAndroid) {
-      try {
-        await device.clearGattCache();
-      } catch (_) {}
-    }
+    // Pausa para estabilizar a conexão GATT e a negociação MTU com o NimBLE
+    await Future.delayed(const Duration(milliseconds: 500));
 
     List<BluetoothService> services = await device.discoverServices();
 
