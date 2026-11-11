@@ -84,16 +84,45 @@ void led_indicator_set_condition(bool condicao_economia)
 }
 
 static bool s_config_mode = false;
+static bool s_no_wifi_mode = false;
+static int s_no_wifi_phase = 0; // 0: Verde acendendo, 1: Verde apagando, 2: Vermelho acendendo, 3: Vermelho apagando
 
 void led_indicator_set_config_mode(bool config_mode)
 {
     s_config_mode = config_mode;
     if (!config_mode) {
-        led_indicator_set_condition(s_condicao_economia);
+        if (s_no_wifi_mode) {
+            s_no_wifi_phase = 0;
+            s_alvo_green = 255;
+            s_alvo_red = 0;
+        } else {
+            led_indicator_set_condition(s_condicao_economia);
+        }
     } else {
         s_alvo_red = 0;
         s_alvo_green = 0; // Começa esmaecendo até apagar e depois reacende devagar
     }
+}
+
+void led_indicator_set_no_wifi_mode(bool no_wifi)
+{
+    s_no_wifi_mode = no_wifi;
+    if (no_wifi) {
+        s_no_wifi_phase = 0;
+        s_alvo_green = 255;
+        s_alvo_red = 0;
+        s_brilho_green = 0;
+        s_brilho_red = 0;
+    } else {
+        if (!s_config_mode) {
+            led_indicator_set_condition(s_condicao_economia);
+        }
+    }
+}
+
+bool led_indicator_is_no_wifi_mode(void)
+{
+    return s_no_wifi_mode;
 }
 
 void led_indicator_update(void)
@@ -108,6 +137,38 @@ void led_indicator_update(void)
         } else if (s_brilho_green <= 0) {
             s_alvo_green = 255;
         }
+    } else if (s_no_wifi_mode) {
+        // Alternância lenta e suave entre LED Verde e LED Vermelho
+        switch (s_no_wifi_phase) {
+            case 0: // Verde aumentando suavemente
+                s_alvo_green = 255;
+                s_alvo_red = 0;
+                if (s_brilho_green >= 255) {
+                    s_no_wifi_phase = 1;
+                }
+                break;
+            case 1: // Verde diminuindo suavemente
+                s_alvo_green = 0;
+                s_alvo_red = 0;
+                if (s_brilho_green <= 0) {
+                    s_no_wifi_phase = 2;
+                }
+                break;
+            case 2: // Vermelho aumentando suavemente
+                s_alvo_green = 0;
+                s_alvo_red = 255;
+                if (s_brilho_red >= 255) {
+                    s_no_wifi_phase = 3;
+                }
+                break;
+            case 3: // Vermelho diminuindo suavemente
+                s_alvo_green = 0;
+                s_alvo_red = 0;
+                if (s_brilho_red <= 0) {
+                    s_no_wifi_phase = 0;
+                }
+                break;
+        }
     }
 
     if (agora_ms - s_ultima_transicao_ms < INTERVALO_TRANSICAO_MS) {
@@ -115,17 +176,20 @@ void led_indicator_update(void)
     }
     s_ultima_transicao_ms = agora_ms;
 
+    // Passo lento (3) para modo config e modo sem wifi (~1.7s para acender/apagar)
+    int passo_green = (s_config_mode || s_no_wifi_mode) ? 3 : PASSO_TRANSICAO;
+    int passo_red   = s_no_wifi_mode ? 3 : PASSO_TRANSICAO;
+
     // Transição gradual do LED Vermelho (D27)
     if (s_brilho_red < s_alvo_red) {
-        s_brilho_red += PASSO_TRANSICAO;
+        s_brilho_red += passo_red;
         if (s_brilho_red > s_alvo_red) s_brilho_red = s_alvo_red;
     } else if (s_brilho_red > s_alvo_red) {
-        s_brilho_red -= PASSO_TRANSICAO;
+        s_brilho_red -= passo_red;
         if (s_brilho_red < s_alvo_red) s_brilho_red = s_alvo_red;
     }
 
     // Transição gradual do LED Verde (D26)
-    int passo_green = s_config_mode ? 3 : PASSO_TRANSICAO; // Passo 3 para esmaecer bem devagar (~1.7s para acender / apagar)
     if (s_brilho_green < s_alvo_green) {
         s_brilho_green += passo_green;
         if (s_brilho_green > s_alvo_green) s_brilho_green = s_alvo_green;

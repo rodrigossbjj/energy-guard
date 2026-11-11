@@ -66,6 +66,7 @@ static void wifi_prov_task(void *pvParameters)
 
                 ble_config_service_stop();
                 led_indicator_set_config_mode(false);
+                led_indicator_set_no_wifi_mode(false);
             } else {
                 ESP_LOGE(TAG, ">>> Falha na conexão Wi-Fi com as credenciais enviadas.");
                 // Status BLE = 3 (Erro)
@@ -236,7 +237,20 @@ static void sensor_monitoring_task(void *pvParameters)
     TickType_t ultima_leitura_dht = xTaskGetTickCount();
 
     while (1) {
+        bool wifi_conectado = wifi_manager_is_connected();
         bool modo_config_ativo = ble_config_service_is_active();
+
+        // Na ausência de Wi-Fi, alterna lentamente os LEDs entre Vermelho e Verde
+        // (a menos que o modo de configuração BLE manual esteja ativo)
+        if (!wifi_conectado && !modo_config_ativo) {
+            if (!led_indicator_is_no_wifi_mode()) {
+                led_indicator_set_no_wifi_mode(true);
+            }
+        } else if (wifi_conectado) {
+            if (led_indicator_is_no_wifi_mode()) {
+                led_indicator_set_no_wifi_mode(false);
+            }
+        }
 
         // Monitoramento constante do Botão de Configuração com Debounce
         bool btn_evento_pressionado = false;
@@ -246,19 +260,20 @@ static void sensor_monitoring_task(void *pvParameters)
                 ESP_LOGI(TAG, ">>> Desativando Modo de Configuração BLE. Retornando ao Modo Normal...");
                 ble_config_service_stop();
                 led_indicator_set_config_mode(false);
+                led_indicator_set_no_wifi_mode(false);
             } else {
                 ESP_LOGI(TAG, ">>> Ativando Modo de Configuração BLE! Pausando sensores e piscando LED Verde (D26)...");
+                led_indicator_set_no_wifi_mode(false);
                 ble_config_service_start();
                 led_indicator_set_config_mode(true);
             }
         }
 
-        // Atualiza animação dos LEDs (fading ou pisca em modo de configuração)
+        // Atualiza animação dos LEDs (fading, alternância ou pisca em modo de configuração)
         led_indicator_update();
 
-        // Durante o Modo de Configuração BLE, PAUSA a leitura do PIR e DHT22
-        // para dedicar a execução totalmente ao modo de configuração
-        if (!modo_config_ativo) {
+        // Na ausência de Wi-Fi ou durante Modo de Configuração BLE, os sensores NÃO leem nada
+        if (wifi_conectado && !modo_config_ativo) {
             monitorar_pir();
 
             // Leitura do DHT22 a cada 2 segundos
@@ -284,7 +299,11 @@ static void wifi_init_task(void *pvParameters)
         wifi_manager_get_ip_str(ip_buf, sizeof(ip_buf));
         ESP_LOGI(TAG, "Wi-Fi pronto! IP Atribuído: %s", ip_buf);
     } else {
-        ESP_LOGW(TAG, "Operando em Modo Offline (Wi-Fi não conectado).");
+        ESP_LOGW(TAG, "Wi-Fi não conectado. Sensores pausados aguardando conexão.");
+        if (!wifi_manager_has_stored_credentials()) {
+            ESP_LOGW(TAG, "Nenhum Wi-Fi configurado no NVS. Ativando BLE para configuração...");
+            ble_config_service_start();
+        }
     }
     vTaskDelete(NULL);
 }

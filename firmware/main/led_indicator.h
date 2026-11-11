@@ -47,5 +47,17 @@ int led_indicator_get_green_brightness(void);
  */
 void led_indicator_set_config_mode(bool config_mode);
 
+/**
+ * @brief Ativa ou desativa o modo de indicação visual de ausência de Wi-Fi
+ *        (alterna lentamente entre o LED Verde e o LED Vermelho).
+ * @param no_wifi true para ativar a alternância lenta, false para retornar ao modo normal.
+ */
+void led_indicator_set_no_wifi_mode(bool no_wifi);
+
+/**
+ * @brief Obtém se o modo de ausência de Wi-Fi está ativo.
+ */
+bool led_indicator_is_no_wifi_mode(void);
+
 #endif // LED_INDICATOR_H
 
