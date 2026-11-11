@@ -28,3 +28,7 @@ keycloak:
 server:
   port: ${PORT:8081}
 
+energyguard:
+  portability:
+    password: ${ENERGYGUARD_PORTABILITY_PASSWORD:admin123}
+

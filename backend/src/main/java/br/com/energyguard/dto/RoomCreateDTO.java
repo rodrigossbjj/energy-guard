@@ -18,4 +18,6 @@ public class RoomCreateDTO {
     private String deviceId;
 
     private Double targetTemperature;
+
+    private String portabilityPassword;
 }

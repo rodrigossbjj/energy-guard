@@ -64,7 +64,7 @@ class RoomServiceTest {
                 .build();
 
         when(roomRepository.existsByName("Lab 101")).thenReturn(false);
-        when(roomRepository.existsByDeviceId("ESP32-001")).thenReturn(false);
+        when(roomRepository.findByDeviceId("ESP32-001")).thenReturn(Optional.empty());
         when(roomRepository.save(any(Room.class))).thenReturn(room);
 
         RoomResponseDTO response = roomService.createRoom(createDTO);
@@ -134,13 +134,91 @@ class RoomServiceTest {
 
         when(roomRepository.findById(roomId)).thenReturn(Optional.of(room));
         when(roomRepository.existsByNameAndIdNot("Lab 102 Atualizado", roomId)).thenReturn(false);
-        when(roomRepository.existsByDeviceIdAndIdNot("ESP32-002", roomId)).thenReturn(false);
+        when(roomRepository.findByDeviceId("ESP32-002")).thenReturn(Optional.empty());
         when(roomRepository.save(any(Room.class))).thenReturn(room);
 
         RoomResponseDTO response = roomService.updateRoom(roomId, updateDTO);
 
         assertThat(response).isNotNull();
         verify(roomRepository, times(1)).save(room);
+    }
+
+    @Test
+    @DisplayName("Deve exigir senha de portabilidade ao criar sala com dispositivo já existente")
+    void createRoom_DuplicateDevice_WithoutPassword_ThrowsPortabilityRequired() {
+        Room existingRoom = Room.builder()
+                .id(UUID.randomUUID())
+                .name("Sala Antiga")
+                .deviceId("ESP32-001")
+                .build();
+
+        RoomCreateDTO createDTO = RoomCreateDTO.builder()
+                .name("Sala Nova")
+                .deviceId("ESP32-001")
+                .build();
+
+        when(roomRepository.existsByName("Sala Nova")).thenReturn(false);
+        when(roomRepository.findByDeviceId("ESP32-001")).thenReturn(Optional.of(existingRoom));
+
+        assertThatThrownBy(() -> roomService.createRoom(createDTO))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("PORTABILITY_REQUIRED")
+                .hasMessageContaining("Sala Antiga");
+
+        verify(roomRepository, never()).save(any(Room.class));
+    }
+
+    @Test
+    @DisplayName("Deve lançar erro ao informar senha de portabilidade incorreta")
+    void createRoom_DuplicateDevice_WrongPassword_ThrowsException() {
+        Room existingRoom = Room.builder()
+                .id(UUID.randomUUID())
+                .name("Sala Antiga")
+                .deviceId("ESP32-001")
+                .build();
+
+        RoomCreateDTO createDTO = RoomCreateDTO.builder()
+                .name("Sala Nova")
+                .deviceId("ESP32-001")
+                .portabilityPassword("senha_errada")
+                .build();
+
+        when(roomRepository.existsByName("Sala Nova")).thenReturn(false);
+        when(roomRepository.findByDeviceId("ESP32-001")).thenReturn(Optional.of(existingRoom));
+
+        assertThatThrownBy(() -> roomService.createRoom(createDTO))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Senha de portabilidade incorreta");
+
+        verify(roomRepository, never()).save(any(Room.class));
+    }
+
+    @Test
+    @DisplayName("Deve autorizar portabilidade e desvincular dispositivo da sala anterior com senha correta")
+    void createRoom_DuplicateDevice_CorrectPassword_TransfersDevice() {
+        Room existingRoom = Room.builder()
+                .id(UUID.randomUUID())
+                .name("Sala Antiga")
+                .deviceId("ESP32-001")
+                .build();
+
+        RoomCreateDTO createDTO = RoomCreateDTO.builder()
+                .name("Sala Nova")
+                .deviceId("ESP32-001")
+                .portabilityPassword("admin123")
+                .build();
+
+        when(roomRepository.existsByName("Sala Nova")).thenReturn(false);
+        when(roomRepository.findByDeviceId("ESP32-001")).thenReturn(Optional.of(existingRoom));
+        when(roomRepository.save(any(Room.class))).thenReturn(room);
+
+        RoomResponseDTO response = roomService.createRoom(createDTO);
+
+        assertThat(response).isNotNull();
+        // Verifica se a sala anterior foi desvinculada e ambas foram salvas
+        assertThat(existingRoom.getDeviceId()).isNull();
+        verify(roomRepository, times(1)).save(existingRoom);
+        verify(roomRepository, times(2)).save(any(Room.class));
     }
 
     @Test

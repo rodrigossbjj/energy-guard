@@ -10,10 +10,12 @@ import br.com.energyguard.exception.BusinessException;
 import br.com.energyguard.exception.ResourceNotFoundException;
 import br.com.energyguard.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -23,6 +25,9 @@ public class RoomService {
 
     private final RoomRepository roomRepository;
 
+    @Value("${energyguard.portability.password:admin123}")
+    private String portabilityPassword = "admin123";
+
     @Transactional
     public RoomResponseDTO createRoom(RoomCreateDTO dto) {
         if (roomRepository.existsByName(dto.getName())) {
@@ -30,8 +35,20 @@ public class RoomService {
         }
 
         if (dto.getDeviceId() != null && !dto.getDeviceId().isBlank()) {
-            if (roomRepository.existsByDeviceId(dto.getDeviceId())) {
-                throw new BusinessException("Já existe uma sala associada ao dispositivo: " + dto.getDeviceId());
+            Optional<Room> existingRoomOpt = roomRepository.findByDeviceId(dto.getDeviceId());
+            if (existingRoomOpt.isPresent()) {
+                Room existingRoom = existingRoomOpt.get();
+                if (dto.getPortabilityPassword() == null || dto.getPortabilityPassword().isBlank()) {
+                    throw new BusinessException("PORTABILITY_REQUIRED: O dispositivo '" + dto.getDeviceId() +
+                            "' já está vinculado à sala '" + existingRoom.getName() +
+                            "'. Digite a senha administrativa para autorizar a portabilidade.");
+                }
+                if (!portabilityPassword.equals(dto.getPortabilityPassword().trim())) {
+                    throw new BusinessException("Senha de portabilidade incorreta.");
+                }
+                // Desvincula o dispositivo da sala anterior para garantir a unicidade
+                existingRoom.setDeviceId(null);
+                roomRepository.save(existingRoom);
             }
         }
 
@@ -69,8 +86,20 @@ public class RoomService {
         }
 
         if (dto.getDeviceId() != null && !dto.getDeviceId().isBlank()) {
-            if (roomRepository.existsByDeviceIdAndIdNot(dto.getDeviceId(), id)) {
-                throw new BusinessException("Já existe outra sala associada ao dispositivo: " + dto.getDeviceId());
+            Optional<Room> existingRoomOpt = roomRepository.findByDeviceId(dto.getDeviceId());
+            if (existingRoomOpt.isPresent() && !existingRoomOpt.get().getId().equals(id)) {
+                Room existingRoom = existingRoomOpt.get();
+                if (dto.getPortabilityPassword() == null || dto.getPortabilityPassword().isBlank()) {
+                    throw new BusinessException("PORTABILITY_REQUIRED: O dispositivo '" + dto.getDeviceId() +
+                            "' já está vinculado à sala '" + existingRoom.getName() +
+                            "'. Digite a senha administrativa para autorizar a portabilidade.");
+                }
+                if (!portabilityPassword.equals(dto.getPortabilityPassword().trim())) {
+                    throw new BusinessException("Senha de portabilidade incorreta.");
+                }
+                // Desvincula o dispositivo da sala anterior para garantir a unicidade
+                existingRoom.setDeviceId(null);
+                roomRepository.save(existingRoom);
             }
         }
 

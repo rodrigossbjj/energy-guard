@@ -18,4 +18,6 @@ public class RoomUpdateDTO {
     private String deviceId;
 
     private Double targetTemperature;
+
+    private String portabilityPassword;
 }
