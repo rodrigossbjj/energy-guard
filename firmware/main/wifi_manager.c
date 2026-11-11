@@ -121,6 +121,28 @@ esp_err_t wifi_manager_clear_credentials(void)
     return err;
 }
 
+esp_err_t wifi_manager_disconnect_and_forget(void)
+{
+    ESP_LOGI(TAG, ">>> Solicitado esquecimento de rede: apagando NVS e desconectando Wi-Fi <<<");
+    wifi_manager_clear_credentials();
+
+    s_is_connected = false;
+    memset(s_ip_addr_str, 0, sizeof(s_ip_addr_str));
+
+    if (s_wifi_event_group) {
+        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+    }
+
+    if (s_stack_initialized) {
+        esp_wifi_disconnect();
+        esp_wifi_stop();
+    }
+
+    ESP_LOGI(TAG, "Wi-Fi desconectado e credenciais removidas com sucesso da memória local.");
+    return ESP_OK;
+}
+
 bool wifi_manager_has_stored_credentials(void)
 {
     char ssid[33] = {0};

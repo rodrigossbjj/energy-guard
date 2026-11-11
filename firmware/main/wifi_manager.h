@@ -47,6 +47,11 @@ esp_err_t wifi_manager_load_credentials(char *ssid_out, size_t ssid_len, char *p
 esp_err_t wifi_manager_clear_credentials(void);
 
 /**
+ * @brief Desconecta do AP Wi-Fi atual e apaga todas as credenciais da memória flash (NVS).
+ */
+esp_err_t wifi_manager_disconnect_and_forget(void);
+
+/**
  * @brief Tenta conectar ao AP Wi-Fi utilizando o SSID e Senha fornecidos dinamicamente.
  */
 esp_err_t wifi_manager_connect_with_credentials(const char *ssid, const char *password);

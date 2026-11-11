@@ -262,7 +262,12 @@ static void sensor_monitoring_task(void *pvParameters)
                 led_indicator_set_config_mode(false);
                 led_indicator_set_no_wifi_mode(false);
             } else {
-                ESP_LOGI(TAG, ">>> Ativando Modo de Configuração BLE! Pausando sensores e piscando LED Verde (D26)...");
+                ESP_LOGI(TAG, ">>> Botão de configuração acionado! Esquecendo Wi-Fi salvo e ativando Modo BLE...");
+                // 1. Esquece a rede anterior e apaga as credenciais da memória flash (NVS)
+                wifi_manager_disconnect_and_forget();
+                ble_config_service_set_wifi_status(0);
+
+                // 2. Entra em modo de provisionamento BLE
                 led_indicator_set_no_wifi_mode(false);
                 ble_config_service_start();
                 led_indicator_set_config_mode(true);
