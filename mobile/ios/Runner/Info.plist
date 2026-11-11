@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>O Energy Guard utiliza Bluetooth para conectar ao ESP32 e configurar a rede Wi-Fi da sala.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>O Energy Guard utiliza Bluetooth para parear com o dispositivo ESP32.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
