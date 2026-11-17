@@ -7,6 +7,7 @@ class RoomModel {
   final double targetTemperature;
   final double? lastAbsenceMinutes;
   final double totalWastedMinutes;
+  final DateTime? updatedAt;
 
   RoomModel({
     required this.id,
@@ -17,6 +18,7 @@ class RoomModel {
     required this.targetTemperature,
     this.lastAbsenceMinutes,
     this.totalWastedMinutes = 0.0,
+    this.updatedAt,
   });
 
   factory RoomModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class RoomModel {
       targetTemperature: (json['targetTemperature'] as num?)?.toDouble() ?? 23.0,
       lastAbsenceMinutes: (json['lastAbsenceMinutes'] as num?)?.toDouble(),
       totalWastedMinutes: (json['totalWastedMinutes'] as num?)?.toDouble() ?? 0.0,
+      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) : null,
     );
   }
 
@@ -42,6 +45,7 @@ class RoomModel {
       'targetTemperature': targetTemperature,
       'lastAbsenceMinutes': lastAbsenceMinutes,
       'totalWastedMinutes': totalWastedMinutes,
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
@@ -54,16 +58,18 @@ class RoomModel {
     double? targetTemperature,
     double? lastAbsenceMinutes,
     double? totalWastedMinutes,
+    DateTime? updatedAt,
   }) {
     return RoomModel(
       id: id ?? this.id,
       name: name ?? this.name,
-      deviceId: deviceId ?? this.deviceId,
+      deviceId: deviceId != null ? (deviceId.isEmpty ? null : deviceId) : this.deviceId,
       occupancyStatus: occupancyStatus ?? this.occupancyStatus,
       acStatus: acStatus ?? this.acStatus,
       targetTemperature: targetTemperature ?? this.targetTemperature,
       lastAbsenceMinutes: lastAbsenceMinutes ?? this.lastAbsenceMinutes,
       totalWastedMinutes: totalWastedMinutes ?? this.totalWastedMinutes,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
