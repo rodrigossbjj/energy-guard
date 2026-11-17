@@ -21,7 +21,6 @@ class _RoomListScreenState extends State<RoomListScreen> {
   void initState() {
     super.initState();
     _refreshRooms();
-    // Auto-refresh a cada 4 segundos para manter os status sincronizados
     _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (mounted) {
         setState(() {
@@ -61,6 +60,8 @@ class _RoomListScreenState extends State<RoomListScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         title: const Text('Confirmar exclusão'),
         content: Text('Deseja realmente excluir a sala "${room.name}"?'),
         actions: [
@@ -126,7 +127,7 @@ class _RoomListScreenState extends State<RoomListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Salas Monitoradas'),
+        title: const Text('Salas Monitoradas', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
         backgroundColor: const Color(0xFF1E1B4B),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -335,7 +336,6 @@ class _RoomListScreenState extends State<RoomListScreen> {
 
                             const SizedBox(height: 12),
 
-                            // Métricas Reais: Temperatura de Referência e Tempo Ocioso Registrado
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
