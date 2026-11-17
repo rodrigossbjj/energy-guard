@@ -171,12 +171,54 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
     }
   }
 
-  void _startSimulatedPairing() {
-    _bleService.stopScan();
+  Future<void> _startSimulatedPairing() async {
+    await _bleService.stopScan();
+    if (!mounted) return;
+
+    final chosenId = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Simular Dispositivo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Escolha qual cenário você deseja simular:',
+              style: TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'EG-SIM101'),
+              icon: const Icon(Icons.fiber_new_outlined, color: Colors.teal),
+              label: const Text('Dispositivo Novo Livre (EG-SIM101)', style: TextStyle(fontSize: 12.5)),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(ctx, 'EG-A4CF12'),
+              icon: const Icon(Icons.swap_horiz_rounded, color: Colors.orange),
+              label: const Text('Dispositivo já em Uso (EG-A4CF12)', style: TextStyle(fontSize: 12.5)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+
+    if (chosenId == null || !mounted) return;
+
     setState(() {
       _errorMessage = null;
       _isSimulatedSession = true;
-      _connectedDeviceId = 'EG-SIM101';
+      _connectedDeviceId = chosenId;
       _step = _BleStep.wifiForm;
     });
   }

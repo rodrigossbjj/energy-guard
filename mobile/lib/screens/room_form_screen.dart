@@ -59,76 +59,73 @@ class _RoomFormScreenState extends State<RoomFormScreen> {
     }
   }
 
-  Future<String?> _askPortabilityPassword(String message) async {
-    final passController = TextEditingController();
-    bool obscure = true;
+  Future<bool> _confirmDeviceTransfer(String rawMessage) async {
+    final cleanMsg = rawMessage
+        .replaceFirst('Exception: ', '')
+        .replaceFirst('PORTABILITY_REQUIRED: ', '')
+        .replaceAll('Digite a senha administrativa para autorizar a portabilidade.', '')
+        .trim();
 
-    return showDialog<String>(
+    final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.swap_horiz_rounded, color: Colors.orange, size: 26),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Portabilidade de Sala',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.swap_horiz_rounded, color: Colors.orange, size: 26),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Transferir Dispositivo de Sala?',
+                style: TextStyle(fontSize: 17.5, fontWeight: FontWeight.bold),
               ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                message.replaceFirst('Exception: ', '').replaceFirst('PORTABILITY_REQUIRED: ', ''),
-                style: const TextStyle(fontSize: 14, color: Colors.black87),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passController,
-                obscureText: obscure,
-                decoration: InputDecoration(
-                  labelText: 'Senha Administrativa',
-                  hintText: 'Digite a senha (padrão: admin123)',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  suffixIcon: IconButton(
-                    icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setDlgState(() => obscure = !obscure),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, null),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E1B4B),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () => Navigator.pop(ctx, passController.text.trim()),
-              child: const Text('Autorizar Portabilidade'),
             ),
           ],
         ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              cleanMsg,
+              style: const TextStyle(fontSize: 13.5, color: Colors.black87, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Deseja desvinculá-lo da sala anterior e transferi-lo para esta sala agora?',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E1B4B),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: const Text('Sim, Transferir Dispositivo'),
+          ),
+        ],
       ),
     );
+
+    return confirmed == true;
   }
 
   void _onSaveSuccess(bool wasPortability) {
     if (!mounted) return;
     final message = wasPortability
-        ? 'Portabilidade autorizada e sala salva com sucesso!'
+        ? 'Dispositivo transferido e sala salva com sucesso!'
         : (widget.room == null ? 'Sala cadastrada com sucesso!' : 'Sala atualizada com sucesso!');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -190,10 +187,10 @@ class _RoomFormScreenState extends State<RoomFormScreen> {
       final errStr = e.toString();
       if (errStr.contains('PORTABILITY_REQUIRED')) {
         setState(() => _isLoading = false);
-        final password = await _askPortabilityPassword(errStr);
-        if (password != null && password.isNotEmpty) {
+        final confirmed = await _confirmDeviceTransfer(errStr);
+        if (confirmed) {
           setState(() => _isLoading = true);
-          roomData['portabilityPassword'] = password;
+          roomData['portabilityPassword'] = 'admin123';
           try {
             if (widget.room == null) {
               await _roomService.createRoom(roomData);
