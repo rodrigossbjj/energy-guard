@@ -1,5 +1,6 @@
 package br.com.energyguard.controller;
 
+import br.com.energyguard.dto.AdminActionDTO;
 import br.com.energyguard.dto.RoomCreateDTO;
 import br.com.energyguard.dto.RoomResponseDTO;
 import br.com.energyguard.dto.RoomStatusUpdateDTO;
@@ -57,5 +58,32 @@ public class RoomController {
             @RequestBody RoomStatusUpdateDTO dto
     ) {
         return ResponseEntity.ok(roomService.updateRoomStatus(id, dto));
+    }
+
+    @PostMapping("/{id}/unlink-device")
+    public ResponseEntity<RoomResponseDTO> unlinkDevice(
+            @PathVariable UUID id,
+            @RequestBody AdminActionDTO dto
+    ) {
+        return ResponseEntity.ok(roomService.unlinkDevice(id, dto));
+    }
+
+    @PostMapping("/{id}/reset-metrics")
+    public ResponseEntity<RoomResponseDTO> resetRoomMetrics(
+            @PathVariable UUID id,
+            @RequestBody AdminActionDTO dto
+    ) {
+        return ResponseEntity.ok(roomService.resetRoomMetrics(id, dto));
+    }
+
+    @PostMapping("/reset-metrics")
+    public ResponseEntity<Void> resetAllMetrics(@RequestBody AdminActionDTO dto) {
+        roomService.resetAllMetrics(dto);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/batch-temperature")
+    public ResponseEntity<List<RoomResponseDTO>> updateBatchTargetTemperature(@RequestBody AdminActionDTO dto) {
+        return ResponseEntity.ok(roomService.updateBatchTargetTemperature(dto));
     }
 }
