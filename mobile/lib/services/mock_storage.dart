@@ -14,6 +14,7 @@ class MockStorage {
       targetTemperature: 23.0,
       lastAbsenceMinutes: 4.5,
       totalWastedMinutes: 14.2,
+      updatedAt: DateTime.now().subtract(const Duration(seconds: 12)),
     ),
     RoomModel(
       id: 'mock-room-2',
@@ -24,6 +25,7 @@ class MockStorage {
       targetTemperature: 22.0,
       lastAbsenceMinutes: 2.0,
       totalWastedMinutes: 2.0,
+      updatedAt: DateTime.now().subtract(const Duration(seconds: 35)),
     ),
     RoomModel(
       id: 'mock-room-3',
@@ -34,6 +36,7 @@ class MockStorage {
       targetTemperature: 24.0,
       lastAbsenceMinutes: 0.0,
       totalWastedMinutes: 0.0,
+      updatedAt: DateTime.now().subtract(const Duration(minutes: 2)),
     ),
   ];
 
@@ -85,7 +88,6 @@ class MockStorage {
         if (password != 'admin123') {
           throw Exception('Senha de portabilidade incorreta.');
         }
-        // Desvincula o dispositivo da sala anterior
         rooms[existingIndex] = existingRoom.copyWith(deviceId: '');
       }
     }
@@ -99,6 +101,7 @@ class MockStorage {
       targetTemperature: (roomData['targetTemperature'] as num?)?.toDouble() ?? 23.0,
       lastAbsenceMinutes: 0.0,
       totalWastedMinutes: 0.0,
+      updatedAt: DateTime.now(),
     );
     rooms.add(newRoom);
     return newRoom;
@@ -131,7 +134,6 @@ class MockStorage {
         if (password != 'admin123') {
           throw Exception('Senha de portabilidade incorreta.');
         }
-        // Desvincula o dispositivo da sala anterior
         rooms[existingIndex] = existingRoom.copyWith(deviceId: '');
       }
     }
@@ -145,8 +147,71 @@ class MockStorage {
       targetTemperature: (roomData['targetTemperature'] as num?)?.toDouble() ?? old.targetTemperature,
       lastAbsenceMinutes: old.lastAbsenceMinutes,
       totalWastedMinutes: old.totalWastedMinutes,
+      updatedAt: DateTime.now(),
     );
     rooms[index] = updated;
     return updated;
+  }
+
+  static RoomModel unlinkDevice(String id, {required String adminPassword}) {
+    if (adminPassword.trim() != 'admin123') {
+      throw Exception('Senha administrativa inválida.');
+    }
+    final index = rooms.indexWhere((r) => r.id == id);
+    if (index == -1) {
+      throw Exception('Sala não encontrada');
+    }
+    final old = rooms[index];
+    final updated = old.copyWith(
+      deviceId: '',
+      occupancyStatus: 'EMPTY',
+      acStatus: false,
+      updatedAt: DateTime.now(),
+    );
+    rooms[index] = updated;
+    return updated;
+  }
+
+  static RoomModel resetRoomMetrics(String id, {required String adminPassword}) {
+    if (adminPassword.trim() != 'admin123') {
+      throw Exception('Senha administrativa inválida.');
+    }
+    final index = rooms.indexWhere((r) => r.id == id);
+    if (index == -1) {
+      throw Exception('Sala não encontrada');
+    }
+    final updated = rooms[index].copyWith(
+      lastAbsenceMinutes: 0.0,
+      totalWastedMinutes: 0.0,
+      updatedAt: DateTime.now(),
+    );
+    rooms[index] = updated;
+    return updated;
+  }
+
+  static void resetAllMetrics({required String adminPassword}) {
+    if (adminPassword.trim() != 'admin123') {
+      throw Exception('Senha administrativa inválida.');
+    }
+    for (int i = 0; i < rooms.length; i++) {
+      rooms[i] = rooms[i].copyWith(
+        lastAbsenceMinutes: 0.0,
+        totalWastedMinutes: 0.0,
+        updatedAt: DateTime.now(),
+      );
+    }
+  }
+
+  static List<RoomModel> updateBatchTemperature(double targetTemp, {required String adminPassword}) {
+    if (adminPassword.trim() != 'admin123') {
+      throw Exception('Senha administrativa inválida.');
+    }
+    for (int i = 0; i < rooms.length; i++) {
+      rooms[i] = rooms[i].copyWith(
+        targetTemperature: targetTemp,
+        updatedAt: DateTime.now(),
+      );
+    }
+    return List<RoomModel>.from(rooms);
   }
 }

@@ -37,7 +37,6 @@ class RoomService {
         body: jsonEncode(roomData),
       ).timeout(const Duration(seconds: 4));
     } catch (_) {
-      // Falha de rede: utiliza armazenamento simulado (Mock)
       MockStorage.isMockMode = true;
       return MockStorage.createRoom(roomData);
     }
@@ -64,7 +63,6 @@ class RoomService {
         body: jsonEncode(roomData),
       ).timeout(const Duration(seconds: 4));
     } catch (_) {
-      // Falha de rede: utiliza armazenamento simulado (Mock)
       MockStorage.isMockMode = true;
       return MockStorage.updateRoom(id, roomData);
     }
@@ -137,11 +135,161 @@ class RoomService {
           targetTemperature: newTemp,
           lastAbsenceMinutes: old.lastAbsenceMinutes,
           totalWastedMinutes: old.totalWastedMinutes,
+          updatedAt: DateTime.now(),
         );
         MockStorage.rooms[index] = updated;
         return updated;
       }
       throw Exception('Sala não encontrada no mock');
+    }
+  }
+
+  Future<RoomModel> unlinkDevice(
+    String roomId, {
+    required String adminPassword,
+    String? authToken,
+  }) async {
+    http.Response? response;
+    try {
+      response = await http.post(
+        Uri.parse('$baseUrl/$roomId/unlink-device'),
+        headers: _buildHeaders(authToken ?? AuthService.currentToken),
+        body: jsonEncode({'adminPassword': adminPassword}),
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      MockStorage.isMockMode = true;
+      return MockStorage.unlinkDevice(roomId, adminPassword: adminPassword);
+    }
+
+    if (response.statusCode == 200) {
+      MockStorage.isMockMode = false;
+      return RoomModel.fromJson(jsonDecode(response.body));
+    } else {
+      String errorMessage = 'Falha ao desvincular dispositivo';
+      try {
+        final err = jsonDecode(response.body);
+        errorMessage = err['message'] ?? errorMessage;
+      } catch (_) {}
+      throw Exception(errorMessage);
+    }
+  }
+
+  Future<RoomModel> resetRoomMetrics(
+    String roomId, {
+    required String adminPassword,
+    String? authToken,
+  }) async {
+    http.Response? response;
+    try {
+      response = await http.post(
+        Uri.parse('$baseUrl/$roomId/reset-metrics'),
+        headers: _buildHeaders(authToken ?? AuthService.currentToken),
+        body: jsonEncode({'adminPassword': adminPassword}),
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      MockStorage.isMockMode = true;
+      return MockStorage.resetRoomMetrics(roomId, adminPassword: adminPassword);
+    }
+
+    if (response.statusCode == 200) {
+      MockStorage.isMockMode = false;
+      return RoomModel.fromJson(jsonDecode(response.body));
+    } else {
+      String errorMessage = 'Falha ao zerar contador da sala';
+      try {
+        final err = jsonDecode(response.body);
+        errorMessage = err['message'] ?? errorMessage;
+      } catch (_) {}
+      throw Exception(errorMessage);
+    }
+  }
+
+  Future<void> resetAllMetrics({
+    required String adminPassword,
+    String? authToken,
+  }) async {
+    http.Response? response;
+    try {
+      response = await http.post(
+        Uri.parse('$baseUrl/reset-metrics'),
+        headers: _buildHeaders(authToken ?? AuthService.currentToken),
+        body: jsonEncode({'adminPassword': adminPassword}),
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      MockStorage.isMockMode = true;
+      MockStorage.resetAllMetrics(adminPassword: adminPassword);
+      return;
+    }
+
+    if (response.statusCode == 204 || response.statusCode == 200) {
+      MockStorage.isMockMode = false;
+      return;
+    } else {
+      String errorMessage = 'Falha ao zerar contadores';
+      try {
+        final err = jsonDecode(response.body);
+        errorMessage = err['message'] ?? errorMessage;
+      } catch (_) {}
+      throw Exception(errorMessage);
+    }
+  }
+
+  Future<List<RoomModel>> updateBatchTemperature(
+    double targetTemperature, {
+    required String adminPassword,
+    String? authToken,
+  }) async {
+    http.Response? response;
+    try {
+      response = await http.post(
+        Uri.parse('$baseUrl/batch-temperature'),
+        headers: _buildHeaders(authToken ?? AuthService.currentToken),
+        body: jsonEncode({
+          'adminPassword': adminPassword,
+          'targetTemperature': targetTemperature,
+        }),
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      MockStorage.isMockMode = true;
+      return MockStorage.updateBatchTemperature(
+        targetTemperature,
+        adminPassword: adminPassword,
+      );
+    }
+
+    if (response.statusCode == 200) {
+      MockStorage.isMockMode = false;
+      final List<dynamic> jsonList = jsonDecode(response.body);
+      return jsonList.map((item) => RoomModel.fromJson(item)).toList();
+    } else {
+      String errorMessage = 'Falha ao atualizar temperaturas em lote';
+      try {
+        final err = jsonDecode(response.body);
+        errorMessage = err['message'] ?? errorMessage;
+      } catch (_) {}
+      throw Exception(errorMessage);
+    }
+  }
+
+  /// Testa a conectividade com o backend e retorna a latência em milissegundos (ou null se offline).
+  Future<int?> pingBackend() async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      final response = await http.get(
+        Uri.parse(baseUrl),
+        headers: _buildHeaders(AuthService.currentToken),
+      ).timeout(const Duration(seconds: 3));
+      stopwatch.stop();
+      if (response.statusCode == 200) {
+        MockStorage.isMockMode = false;
+        return stopwatch.elapsedMilliseconds;
+      }
+      MockStorage.isMockMode = true;
+      return null;
+    } catch (_) {
+      stopwatch.stop();
+      MockStorage.isMockMode = true;
+      return null;
     }
   }
 
