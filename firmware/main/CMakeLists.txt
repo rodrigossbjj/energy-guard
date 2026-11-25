@@ -1,3 +1,19 @@
-idf_component_register(SRCS "main.c" "led_indicator.c" "pir_sensor.c" "dht22_sensor.c" "wifi_manager.c" "device_id.c" "config_button.c" "ble_config_service.c" "telemetry_client.c"
-                    INCLUDE_DIRS "."
-                    REQUIRES bt nvs_flash esp_driver_ledc esp_driver_gpio driver esp_http_client esp_timer)
+idf_component_register(
+    SRCS
+        "main.c"
+        "sensors/pir_sensor.c"
+        "sensors/dht22_sensor.c"
+        "peripherals/led_indicator.c"
+        "peripherals/config_button.c"
+        "network/wifi_manager.c"
+        "network/ble_config_service.c"
+        "network/telemetry_client.c"
+        "system/device_id.c"
+    INCLUDE_DIRS
+        "."
+        "sensors"
+        "peripherals"
+        "network"
+        "system"
+    REQUIRES bt nvs_flash esp_driver_ledc esp_driver_gpio driver esp_http_client esp_timer
+)
