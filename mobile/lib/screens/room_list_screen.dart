@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/room_model.dart';
-import '../services/mock_storage.dart';
 import '../services/room_service.dart';
 import 'room_form_screen.dart';
 
@@ -132,27 +131,6 @@ class _RoomListScreenState extends State<RoomListScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (MockStorage.isMockMode)
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.amber.withAlpha(50),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.amberAccent, width: 1),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(radius: 4, backgroundColor: Colors.amberAccent),
-                  SizedBox(width: 6),
-                  Text(
-                    'Simulado',
-                    style: TextStyle(fontSize: 11, color: Colors.amberAccent, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshRooms,

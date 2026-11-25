@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/room_model.dart';
 import '../services/api_config.dart';
 import '../services/auth_service.dart';
-import '../services/mock_storage.dart';
 import '../services/room_service.dart';
 import '../widgets/ble_wifi_config_modal.dart';
 import 'login_screen.dart';
@@ -634,10 +633,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                             decoration: BoxDecoration(
-                              color: !MockStorage.isMockMode ? Colors.teal.shade50 : Colors.amber.shade50,
+                              color: _latencyMs != null ? Colors.teal.shade50 : Colors.red.shade50,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: !MockStorage.isMockMode ? Colors.teal.shade200 : Colors.amber.shade300,
+                                color: _latencyMs != null ? Colors.teal.shade200 : Colors.red.shade200,
                               ),
                             ),
                             child: Row(
@@ -645,17 +644,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               children: [
                                 CircleAvatar(
                                   radius: 3.5,
-                                  backgroundColor: !MockStorage.isMockMode ? Colors.teal : Colors.amber.shade800,
+                                  backgroundColor: _latencyMs != null ? Colors.teal : Colors.red.shade700,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  !MockStorage.isMockMode
-                                      ? 'API Online${_latencyMs != null ? ' (${_latencyMs}ms)' : ''}'
-                                      : 'Modo Simulado',
+                                  _latencyMs != null
+                                      ? 'API Online (${_latencyMs}ms)'
+                                      : 'API Offline',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: !MockStorage.isMockMode ? Colors.teal.shade900 : Colors.amber.shade900,
+                                    color: _latencyMs != null ? Colors.teal.shade900 : Colors.red.shade900,
                                   ),
                                 ),
                               ],

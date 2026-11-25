@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/dashboard_summary_model.dart';
 import '../services/dashboard_service.dart';
-import '../services/mock_storage.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -89,26 +88,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
             margin: const EdgeInsets.symmetric(vertical: 14),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             decoration: BoxDecoration(
-              color: MockStorage.isMockMode ? Colors.amber.withAlpha(45) : Colors.tealAccent.withAlpha(30),
+              color: Colors.tealAccent.withAlpha(30),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: MockStorage.isMockMode ? Colors.amberAccent : Colors.tealAccent,
+                color: Colors.tealAccent,
                 width: 1,
               ),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircleAvatar(
                   radius: 3.5,
-                  backgroundColor: MockStorage.isMockMode ? Colors.amberAccent : Colors.tealAccent,
+                  backgroundColor: Colors.tealAccent,
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Text(
-                  MockStorage.isMockMode ? 'Simulado' : 'Ao Vivo',
+                  'Ao Vivo',
                   style: TextStyle(
                     fontSize: 11,
-                    color: MockStorage.isMockMode ? Colors.amberAccent : Colors.tealAccent,
+                    color: Colors.tealAccent,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -170,33 +169,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   children: [
-                    if (MockStorage.isMockMode)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.amber.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.info_outline, color: Colors.amber.shade900, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Modo Simulação Ativo (Servidor offline). Dados de demonstração.',
-                                style: TextStyle(
-                                  color: Colors.amber.shade900,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
                     // BANNER COMPACTO E POSITIVO DE STATUS
                     _buildStatusBanner(summary, hasWastedEnergy),
 
