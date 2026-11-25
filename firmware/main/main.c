@@ -10,6 +10,7 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "nvs.h"
 #include "driver/gpio.h"
 
 #include "led_indicator.h"
@@ -91,6 +92,57 @@ static void on_wifi_credentials_received(const char *ssid, const char *password)
     xQueueSend(s_wifi_prov_queue, &req, 0);
 }
 
+#define ENERGY_NVS_NAMESPACE "energy_config"
+#define ENERGY_NVS_KEY_TEMP  "target_temp"
+
+static void save_target_temperature_to_nvs(float temp)
+{
+    nvs_handle_t nvs_h;
+    esp_err_t err = nvs_open(ENERGY_NVS_NAMESPACE, NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Erro ao abrir NVS para salvar temperatura: 0x%x", err);
+        return;
+    }
+
+    err = nvs_set_blob(nvs_h, ENERGY_NVS_KEY_TEMP, &temp, sizeof(temp));
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs_h);
+    }
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Temperatura de referência salva na NVS: %.1f C", temp);
+    } else {
+        ESP_LOGE(TAG, "Erro ao gravar temperatura na NVS: 0x%x", err);
+    }
+    nvs_close(nvs_h);
+}
+
+static void load_target_temperature_from_nvs(void)
+{
+    nvs_handle_t nvs_h;
+    esp_err_t err = nvs_open(ENERGY_NVS_NAMESPACE, NVS_READONLY, &nvs_h);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "Nenhuma temperatura salva na NVS. Usando padrão: %.1f C", s_target_temperature);
+        return;
+    }
+
+    float stored_temp = s_target_temperature;
+    size_t len = sizeof(stored_temp);
+    err = nvs_get_blob(nvs_h, ENERGY_NVS_KEY_TEMP, &stored_temp, &len);
+    if (err == ESP_OK && len == sizeof(stored_temp) && stored_temp >= 10.0f && stored_temp <= 40.0f) {
+        s_target_temperature = stored_temp;
+        ESP_LOGI(TAG, "Temperatura de referência carregada da NVS: %.1f C", s_target_temperature);
+    } else {
+        ESP_LOGI(TAG, "Temperatura padrão mantida: %.1f C", s_target_temperature);
+    }
+    nvs_close(nvs_h);
+}
+
+static void on_target_temp_received(float target_temp)
+{
+    s_target_temperature = target_temp;
+    save_target_temperature_to_nvs(target_temp);
+}
+
 /**
  * @brief Enfileira pacote de telemetria assíncrono para o backend.
  */
@@ -115,7 +167,7 @@ static void enviar_telemetria(const char *status, bool ac, bool waste, double du
 static void verificar_transicao_presenca(bool sala_ocupada, float temp)
 {
     s_current_temperature = temp;
-    bool ar_ligado = (temp < 30.0f);
+    bool ar_ligado = (temp < s_target_temperature);
     bool condicao_desperdicio = (ar_ligado && !sala_ocupada);
 
     // Transição 1: Início de ausência com ar ligado
@@ -164,13 +216,14 @@ static void monitorar_pir(void)
  */
 static void processar_regra_atentuacao(float temp, bool sala_ocupada)
 {
-    // LED Vermelho (D27) aceso se sem presença E temp < 24°C
+    // LED Vermelho (D27) aceso se sem presença E temp < s_target_temperature
     // LED Verde (D26) aceso nas demais condições ("Tudo bem")
-    bool condicao_economia = (temp < 30.0f && !sala_ocupada);
+    bool condicao_economia = (temp < s_target_temperature && !sala_ocupada);
     led_indicator_set_condition(condicao_economia);
 
     if (condicao_economia) {
-        ESP_LOGI(TAG, ">>> [DHT] Temperatura abaixo de 24°C e PIR sem ocupação - LED Vermelho (D27)");
+        ESP_LOGI(TAG, ">>> [DHT] Temperatura abaixo de %.1f°C e PIR sem ocupação - LED Vermelho (D27)",
+                 s_target_temperature);
     } else {
         ESP_LOGI(TAG, ">>> [DHT] Condição normal (Tudo bem) - LED Verde (D26)");
     }
@@ -323,6 +376,9 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
+    // Carrega temperatura de referência salva na NVS (se existir)
+    load_target_temperature_from_nvs();
+
     // Inicialização dos Módulos Hardware
     led_indicator_init(LED_INDICATOR_RED_GPIO, LED_INDICATOR_GREEN_GPIO);
     pir_sensor_init(&s_pir, PIR_SENSOR_DEFAULT_GPIO);
@@ -336,6 +392,7 @@ void app_main(void)
     // Inicialização do NimBLE (Bluetooth vem DESLIGADO por padrão)
     ble_config_service_init();
     ble_config_service_set_credentials_cb(on_wifi_credentials_received);
+    ble_config_service_set_target_temp_cb(on_target_temp_received);
 
     // Inicialização do Cliente de Telemetria HTTP
     telemetry_client_init(NULL);

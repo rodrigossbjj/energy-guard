@@ -1,4 +1,5 @@
 #include "ble_config_service.h"
+#include <stdlib.h>
 #include <string.h>
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -27,6 +28,7 @@ static char s_rx_ssid[33] = {0};
 static char s_rx_pass[65] = {0};
 static uint8_t s_wifi_status = 0; // 0=Aguardando, 1=Conectando, 2=Sucesso, 3=Erro
 static ble_config_wifi_cb_t s_credentials_cb = NULL;
+static ble_config_target_temp_cb_t s_target_temp_cb = NULL;
 
 static void ble_config_start_advertising(void);
 
@@ -77,6 +79,7 @@ static const ble_uuid16_t gatt_chr_dev_id_uuid = BLE_UUID16_INIT(0xFF01);
 static const ble_uuid16_t gatt_chr_wifi_ssid_uuid = BLE_UUID16_INIT(0xFF02);
 static const ble_uuid16_t gatt_chr_wifi_pass_uuid = BLE_UUID16_INIT(0xFF03);
 static const ble_uuid16_t gatt_chr_wifi_status_uuid = BLE_UUID16_INIT(0xFF04);
+static const ble_uuid16_t gatt_chr_target_temp_uuid = BLE_UUID16_INIT(0xFF05);
 
 static int ble_config_gatt_access(uint16_t conn_handle, uint16_t attr_handle,
                                   struct ble_gatt_access_ctxt *ctxt, void *arg)
@@ -137,6 +140,34 @@ static int ble_config_gatt_access(uint16_t conn_handle, uint16_t attr_handle,
         }
         break;
 
+    case 0xFF05: /* Target Temperature (Write Only) */
+        if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
+            char temp_buf[16] = {0};
+            uint16_t len = OS_MBUF_PKTLEN(ctxt->om);
+            if (len == 0 || len >= sizeof(temp_buf)) {
+                return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+            }
+            rc = ble_hs_mbuf_to_flat(ctxt->om, temp_buf, len, NULL);
+            if (rc != 0) {
+                return BLE_ATT_ERR_UNLIKELY;
+            }
+            temp_buf[len] = '\0';
+
+            char *endptr = NULL;
+            float parsed_temp = strtof(temp_buf, &endptr);
+            if (endptr == temp_buf || parsed_temp < 10.0f || parsed_temp > 40.0f) {
+                ESP_LOGW(TAG, "BLE Temperatura inválida recebida: '%s'", temp_buf);
+                return BLE_ATT_ERR_UNLIKELY;
+            }
+
+            ESP_LOGI(TAG, "BLE Temperatura de referência recebida: %.1f C", parsed_temp);
+            if (s_target_temp_cb != NULL) {
+                s_target_temp_cb(parsed_temp);
+            }
+            return 0;
+        }
+        break;
+
     default:
         break;
     }
@@ -169,6 +200,11 @@ static const struct ble_gatt_svc_def s_gatt_svcs[] = {
                 .access_cb = ble_config_gatt_access,
                 .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_NOTIFY,
                 .val_handle = &s_wifi_status_val_handle,
+            },
+            {
+                .uuid = &gatt_chr_target_temp_uuid.u,
+                .access_cb = ble_config_gatt_access,
+                .flags = BLE_GATT_CHR_F_WRITE,
             },
             { 0 } /* Terminação das características */
         },
@@ -375,6 +411,11 @@ bool ble_config_service_is_active(void)
 void ble_config_service_set_credentials_cb(ble_config_wifi_cb_t cb)
 {
     s_credentials_cb = cb;
+}
+
+void ble_config_service_set_target_temp_cb(ble_config_target_temp_cb_t cb)
+{
+    s_target_temp_cb = cb;
 }
 
 void ble_config_service_set_wifi_status(uint8_t status)

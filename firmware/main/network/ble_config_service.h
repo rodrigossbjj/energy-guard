@@ -50,6 +50,16 @@ typedef void (*ble_config_wifi_cb_t)(const char *ssid, const char *password);
 void ble_config_service_set_credentials_cb(ble_config_wifi_cb_t cb);
 
 /**
+ * @brief Callback disparada quando a temperatura de referência é recebida via BLE.
+ */
+typedef void (*ble_config_target_temp_cb_t)(float target_temp);
+
+/**
+ * @brief Registra a callback para tratar a temperatura de referência recebida via BLE.
+ */
+void ble_config_service_set_target_temp_cb(ble_config_target_temp_cb_t cb);
+
+/**
  * @brief Atualiza o status de conexão Wi-Fi na característica BLE e envia notificação aos clientes.
  * @param status 0=Aguardando, 1=Conectando, 2=Sucesso, 3=Erro
  */
