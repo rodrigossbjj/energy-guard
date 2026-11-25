@@ -17,6 +17,7 @@ class BleProvisioningSession {
   final BluetoothCharacteristic ssidCharacteristic;
   final BluetoothCharacteristic passwordCharacteristic;
   final BluetoothCharacteristic statusCharacteristic;
+  final BluetoothCharacteristic? targetTempCharacteristic;
 
   BleProvisioningSession({
     required this.device,
@@ -24,6 +25,7 @@ class BleProvisioningSession {
     required this.ssidCharacteristic,
     required this.passwordCharacteristic,
     required this.statusCharacteristic,
+    this.targetTempCharacteristic,
   });
 }
 
@@ -34,6 +36,7 @@ class BleProvisioningService {
   static const String wifiSsidShortUuid = 'ff02';
   static const String wifiPassShortUuid = 'ff03';
   static const String wifiStatusShortUuid = 'ff04';
+  static const String targetTempShortUuid = 'ff05';
 
   static bool matchesShortUuid(Guid guid, String shortHex) {
     final target = shortHex.toLowerCase();
@@ -149,6 +152,7 @@ class BleProvisioningService {
     BluetoothCharacteristic? ssidChar;
     BluetoothCharacteristic? passChar;
     BluetoothCharacteristic? statusChar;
+    BluetoothCharacteristic? targetTempChar;
 
     for (final chr in configService.characteristics) {
       if (matchesShortUuid(chr.uuid, deviceIdShortUuid)) {
@@ -159,6 +163,8 @@ class BleProvisioningService {
         passChar = chr;
       } else if (matchesShortUuid(chr.uuid, wifiStatusShortUuid)) {
         statusChar = chr;
+      } else if (matchesShortUuid(chr.uuid, targetTempShortUuid)) {
+        targetTempChar = chr;
       }
     }
 
@@ -199,15 +205,18 @@ class BleProvisioningService {
       ssidCharacteristic: ssidChar,
       passwordCharacteristic: passChar,
       statusCharacteristic: statusChar,
+      targetTempCharacteristic: targetTempChar,
     );
   }
 
-  /// Envia SSID (0xFF02) e depois Senha (0xFF03) — ordem exigida pelo firmware —
+  /// Envia SSID (0xFF02), Temperatura de Referência (0xFF05, opcional) e depois Senha (0xFF03) —
+  /// ordem exigida pelo firmware, pois 0xFF03 dispara a conexão Wi-Fi e encerra o BLE —
   /// e aguarda a confirmação real de conexão Wi-Fi pela característica 0xFF04.
   Future<int> sendWifiCredentials(
     BleProvisioningSession session, {
     required String ssid,
     required String password,
+    double? targetTemperature,
     void Function(int status)? onStatusUpdate,
     Duration timeout = const Duration(seconds: 25),
   }) async {
@@ -259,7 +268,14 @@ class BleProvisioningService {
       await session.ssidCharacteristic.write(ssidBytes, withoutResponse: false);
       await Future.delayed(const Duration(milliseconds: 120));
 
-      // 2. Escreve Senha (0xFF03) -> dispara s_credentials_cb no ESP32
+      // 2. Escreve Temperatura de Referência (0xFF05), se informada e suportada pelo firmware
+      if (targetTemperature != null && session.targetTempCharacteristic != null) {
+        final tempBytes = utf8.encode(targetTemperature.toStringAsFixed(1));
+        await session.targetTempCharacteristic!.write(tempBytes, withoutResponse: false);
+        await Future.delayed(const Duration(milliseconds: 120));
+      }
+
+      // 3. Escreve Senha (0xFF03) -> dispara s_credentials_cb no ESP32
       await session.passwordCharacteristic.write(passBytes, withoutResponse: false);
 
       return await completer.future;

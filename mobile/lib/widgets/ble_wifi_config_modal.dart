@@ -29,13 +29,13 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
   final _formKey = GlobalKey<FormState>();
   final _ssidController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _targetTempController = TextEditingController(text: '23.0');
 
   _BleStep _step = _BleStep.scan;
   bool _isScanning = false;
   bool _isConnectingDevice = false;
   bool _isSendingWifi = false;
   bool _obscurePassword = true;
-  bool _isSimulatedSession = false;
 
   String? _statusMessage;
   String? _errorMessage;
@@ -91,6 +91,7 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
     _bleService.safeDisconnect(_session?.device);
     _ssidController.dispose();
     _passwordController.dispose();
+    _targetTempController.dispose();
     super.dispose();
   }
 
@@ -155,7 +156,6 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
       setState(() {
         _session = session;
         _connectedDeviceId = session.deviceId;
-        _isSimulatedSession = false;
         _isConnectingDevice = false;
         _statusMessage = null;
         _step = _BleStep.wifiForm;
@@ -171,58 +171,6 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
     }
   }
 
-  Future<void> _startSimulatedPairing() async {
-    await _bleService.stopScan();
-    if (!mounted) return;
-
-    final chosenId = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Simular Dispositivo', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Escolha qual cenário você deseja simular:',
-              style: TextStyle(fontSize: 13, color: Colors.black87),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pop(ctx, 'EG-SIM101'),
-              icon: const Icon(Icons.fiber_new_outlined, color: Colors.teal),
-              label: const Text('Dispositivo Novo Livre (EG-SIM101)', style: TextStyle(fontSize: 12.5)),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.pop(ctx, 'EG-A4CF12'),
-              icon: const Icon(Icons.swap_horiz_rounded, color: Colors.orange),
-              label: const Text('Dispositivo já em Uso (EG-A4CF12)', style: TextStyle(fontSize: 12.5)),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Cancelar'),
-          ),
-        ],
-      ),
-    );
-
-    if (chosenId == null || !mounted) return;
-
-    setState(() {
-      _errorMessage = null;
-      _isSimulatedSession = true;
-      _connectedDeviceId = chosenId;
-      _step = _BleStep.wifiForm;
-    });
-  }
-
   Future<void> _sendWifiCredentials() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -234,20 +182,7 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
 
     final ssid = _ssidController.text.trim();
     final password = _passwordController.text;
-
-    if (_isSimulatedSession) {
-      await Future.delayed(const Duration(milliseconds: 900));
-      if (!mounted) return;
-      setState(() => _statusMessage = 'Dispositivo conectando ao Wi-Fi "$ssid"...');
-      await Future.delayed(const Duration(milliseconds: 1100));
-      if (!mounted) return;
-      setState(() {
-        _isSendingWifi = false;
-        _statusMessage = null;
-        _step = _BleStep.success;
-      });
-      return;
-    }
+    final targetTemp = double.tryParse(_targetTempController.text.trim().replaceAll(',', '.'));
 
     if (_session == null) return;
 
@@ -256,6 +191,7 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
         _session!,
         ssid: ssid,
         password: password,
+        targetTemperature: targetTemp,
         onStatusUpdate: (status) {
           if (!mounted) return;
           if (status == EspWifiStatus.connecting) {
@@ -299,7 +235,6 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
     setState(() {
       _session = null;
       _connectedDeviceId = null;
-      _isSimulatedSession = false;
       _errorMessage = null;
       _statusMessage = null;
       _step = _BleStep.scan;
@@ -521,15 +456,6 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
                 },
               ),
             ),
-          const SizedBox(height: 12),
-          TextButton.icon(
-            onPressed: _startSimulatedPairing,
-            icon: const Icon(Icons.science_outlined, size: 16),
-            label: const Text(
-              'Simular pareamento (para testes sem dispositivo)',
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
         ],
       ],
     );
@@ -554,7 +480,7 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Dispositivo conectado: $_connectedDeviceId${_isSimulatedSession ? ' (Simulado)' : ''}',
+                    'Dispositivo conectado: $_connectedDeviceId',
                     style: TextStyle(
                       color: Colors.teal.shade900,
                       fontWeight: FontWeight.bold,
@@ -617,6 +543,34 @@ class _BleWifiConfigModalState extends State<BleWifiConfigModal> {
             validator: (val) {
               if (val != null && utf8.encode(val).length > 64) {
                 return 'Senha excede o limite de 64 caracteres';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _targetTempController,
+            enabled: !_isSendingWifi,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Temperatura de Referência (°C) *',
+              hintText: 'Ex: 23.0',
+              helperText: 'Abaixo desta temperatura sem presença indica desperdício',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+              prefixIcon: const Icon(Icons.thermostat_outlined, color: Colors.indigo),
+            ),
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) {
+                return 'Informe a temperatura de referência';
+              }
+              final parsed = double.tryParse(val.trim().replaceAll(',', '.'));
+              if (parsed == null) {
+                return 'Informe um valor numérico válido';
+              }
+              if (parsed < 10.0 || parsed > 40.0) {
+                return 'Temperatura deve estar entre 10°C e 40°C';
               }
               return null;
             },
